@@ -1,0 +1,31 @@
+; /usr/include/asm-generic/fcntl.h
+
+O_ACCMODE	:=	00000003o
+O_RDONLY	:=	00000000o
+O_WRONLY	:=	00000001o
+O_RDWR		:=	00000002o
+
+O_CREAT		:=	00000100o
+O_EXCL		:=	00000200o
+O_NOCTTY	:=	00000400o
+O_TRUNC		:=	00001000o
+O_APPEND	:=	00002000o
+
+O_NONBLOCK	:=	00004000o
+O_DSYNC		:=	00010000o	; раньше назывался O_SYNC, см. далее
+FASYNC		:=	00020000o	; fcntl для совместимости с BSD
+O_DIRECT	:=	00040000o	; прямой доступ к диску
+O_LARGEFILE	:=	00100000o
+O_DIRECTORY	:=	00200000o
+O_NOFOLLOW	:=	00400000o	; don't follow links
+O_NOATIME	:=	01000000o
+O_CLOEXEC	:=	02000000o	; закрывает описатель для дочернего процесса
+
+O_SYNC		:=	04000000o or O_DSYNC
+
+O_PATH		:=	010000000o
+
+O_TMPFILE	:=	020000000o or O_DIRECTORY
+O_TMPFILE_MASK	:=	O_TMPFILE or O_CREAT
+
+O_NDELAY	:=	O_NONBLOCK
