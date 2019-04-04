@@ -379,7 +379,7 @@ CODE_INT16		:= 0x1
 CODE_INT8		:= 0x0
 	cmp	rsp, rbp
 	jz	.read_items_finished
-	dec	.count
+	dec	[.count]
 	jnz	.read_code
 	pop	rcx
 	pop	dest
