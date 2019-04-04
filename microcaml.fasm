@@ -296,7 +296,7 @@ main:
 ;	Если байткод слинкован с интерпретатором статически, таблица примитивов
 ;	копируется из caml_builtin_cprim в caml_build_primitive_table_builtin().
 ;	Здесь создаём таблицу на этапе ассемблирования, см. caml_builtin_cprim
-int3
+
 	alloc_small_init
 ;	jmp .read_items_finished
 
@@ -336,6 +336,7 @@ Intext_magic_number_small := 0x8495A6BE bswap 4
 ;	и сохраняет сслыку в caml_global_data для доступа по инструкции GETGLOBAL.
 ;	Здесь сохраняются объекты при чтении из DATA.
 intern_dest	equ alloc_small_ptr	; intern_block == intern_dest + sizeof value
+intern_color	:= Caml_white	;  может быть и Caml_blac
 ;	Таблица ссылок на сохранённые объекты.
 dest		equ rbx
 ;	mov	dest, alloc_small_ptr
@@ -356,7 +357,6 @@ dest		equ rbx
 		.count	dq ?
 		.dest	dq ?
 	end virtual
-	int3
 	mov	rbp, rsp
 	push	dest
 	pushq	1
@@ -375,6 +375,7 @@ PREFIX_SMALL_INT	:= 0x40
 PREFIX_SMALL_STRING	:= 0x20
 CODE_CUSTOM		:= 0x12
 CODE_BLOCK32		:= 0x8
+CODE_INT16		:= 0x1
 CODE_INT8		:= 0x0
 	cmp	rsp, rbp
 	jz	.read_items_finished
@@ -398,8 +399,14 @@ CODE_INT8		:= 0x0
 	
 	cmp	al, CODE_INT8
 	jz	.code_int8
+	
+	cmp	al, CODE_INT16
+	jz	.code_int16
+	
+	cmp	al, CODE_CUSTOM
+	jz	.code_custom
 
-.unsupported_yet:int3
+.unsupported_yet:
 ;	Пока поддержаны не все блоки данных.
 	call	stdout_hex_byte
 	puts	error_unsupported_data
@@ -410,22 +417,44 @@ CODE_INT8		:= 0x0
 	and	eax, 0x3F
 	jmp	.read_int_ok
 
+.code_int8:
+	xor	eax, eax
+	lods	byte[rsi]
+	jmp	.read_int_ok
+
+.code_int16:
+	xor	eax, eax
+	lods	byte[rsi]
+	shl	eax, 8
+	lods	byte[rsi]
+	jmp	.read_int_ok
+
 .small_blocl:
 	mov	ecx, eax
 	shr	ecx, 4
 	and	ecx, 7		; размер
 	and	eax, 0xF	; тег
 .read_block:
-;	Здесь следует проверить размер и Object_tag
+	cmp	rcx, 0
+	jz	.read_block_0
+;	Здесь следует проверить Object_tag и выполнить OFreshOID
+	cmp	eax, Object_tag
+;	jz	.read_block_object
+
 	push	dest
 	push	rcx
 
 	to_wosize rcx
 	or	rax, rcx
-	or	rax, Caml_white	; intern_color может быть и Caml_black
-	stos	qword[intern_dest]
+	or	rax, intern_color
+	stos	Val_header[intern_dest]
 	mov	rax, intern_dest
 	jmp	.read_item_ok
+.read_block_0:
+;	(((value) (((header_t *) (&(caml_atom_table [(tag)]))) + 1)))
+	lea	rax, [caml_atom_table + (rax + 1) * sizeof value]
+	jmp	.read_item_ok
+.read_block_object:int3
 
 .small_string:
 ;	Длина строки
@@ -441,8 +470,8 @@ CODE_INT8		:= 0x0
 ;	shr	eax, sizeof_value_log2
 ;	to_wosize eax
 	shl	rax, 10 - sizeof_value_log2
-	or	rax, String_tag or Caml_white	; intern_color может быть и Caml_black
-	stos	qword[intern_dest]
+	or	rax, String_tag or intern_color
+	stos	Val_header[intern_dest]
 rep	movs	byte[intern_dest], [rsi]
 	mov	ecx, edx
 	xor	eax, eax
@@ -452,11 +481,6 @@ rep	stos	byte[intern_dest]
 	stos	byte[intern_dest]
 	jmp	.read_item_ok
 
-.code_int8:
-	xor	eax, eax
-	lods	byte[rsi]
-	jmp	.read_int_ok
-
 .code_block32:
 	lods	dword[rsi]
 	bswap	eax
@@ -464,6 +488,26 @@ rep	stos	byte[intern_dest]
 	shr	ecx, 10		; размер
 	and	eax, 0xff	; тэг
 	jmp	.read_block
+
+.code_custom:
+;	В блоке DATA пока встречается только тип '_j' (см. caml_int64_ops).
+;	Реализуем десериализацию непосредственно, без custom_operations.
+	lods	word[rsi]
+	cmp	ax, '_j'
+;	puts	rsi
+	jnz	.unsupported_yet
+;	int64_deserialize()
+	inc	rsi
+	mov	rax, (1 + 1) wosize or Custom_tag or intern_color
+	stos	Val_header[intern_dest]
+	push	intern_dest
+	lea	rax, [caml_int64_ops]
+	stos	qword[intern_dest]	
+	lods	qword[rsi]
+	bswap	rax
+	stos	qword[intern_dest]
+	pop	rax
+	jmp	.read_item_ok
 
 .read_items_finished:
 restore	intern_dest
@@ -520,6 +564,14 @@ channel_operations:
 	.deserialize	dq 0 ;custom_deserialize_default,
 	.compare_ext	dq 0 ;custom_compare_ext_default
 
+caml_int64_ops:
+	.identifier	dq "_j"	; в оригинале указатель на строку
+	.finalize	dq 0 ;custom_finalize_default
+	.compare	dq 0 ;int64_cmp,
+	.hash		dq 0 ;int64_hash,
+	.serialize	dq 0 ;int64_serialize,
+	.deserialize	dq 0 ;int64_deserialize,
+	.compare_ext	dq 0 ;custom_compare_ext_default
 
 ; caml_builtin_cprim
 include 'primitives.inc'
