@@ -336,38 +336,40 @@ Intext_magic_number_small := 0x8495A6BE bswap 4
 ;	и сохраняет сслыку в caml_global_data для доступа по инструкции GETGLOBAL.
 ;	Здесь сохраняются объекты при чтении из DATA.
 intern_dest	equ alloc_small_ptr	; intern_block == intern_dest + sizeof value
-intern_color	:= Caml_white	;  может быть и Caml_blac
+intern_color	:= Caml_black	; может быть и Caml_white
 ;	Таблица ссылок на сохранённые объекты.
 dest		equ rbx
 ;	mov	dest, alloc_small_ptr
 
 ; 	intern_alloc()
 ;	Заголовок будет (?) перезаписан при дальнейшем чтении.
-	to_wosize	eax
-	or	eax, Caml_black or String_tag
-	stos	qword[alloc_small_ptr]
+;	to_wosize	eax
+;	or	eax, Caml_black or String_tag
+;	stos	qword[alloc_small_ptr]
 ;
-	mov	dest, alloc_small_ptr
+;	mov	dest, alloc_small_ptr
+;	mov	[caml_global_data], dest
+	lea	dest, [caml_global_data]
 ;
-	lea	alloc_small_ptr, [alloc_small_ptr + rcx*sizeof value]	; +1?
+;	lea	alloc_small_ptr, [alloc_small_ptr + rcx*sizeof value]	; +1?
 
 ;	intern_rec()
 ;	Развёрнутая рекурсия. Счётчики циклов сохраняем на стеке.
 	virtual at rsp
+	label 	.intern_item:16
 		.count	dq ?
 		.dest	dq ?
 	end virtual
 	mov	rbp, rsp
-	push	dest
-	pushq	1
-	jmp	.read_items
+;	push	dest
+;	pushq	1
+	jmp	.read_code
 ;	Целые сохраняются в таблице ссылок непосредственно как значения.
 .read_int_ok:
 	lea	rax, [2*rax+1]
 ;	По завершению чтения элемента сохраняем его адрес в таблице ссылок.
 .read_item_ok:
 	mov	[dest], rax
-	lea	dest, [dest + sizeof value]
 ;OReadItems 	:= 0	; считывание элементов
 .read_items:
 PREFIX_SMALL_BLOCK	:= 0x80
@@ -379,10 +381,14 @@ CODE_INT16		:= 0x1
 CODE_INT8		:= 0x0
 	cmp	rsp, rbp
 	jz	.read_items_finished
+;	Следующий запланированный адрес в таблице ссылок
+	mov	dest, [.dest]
+	add	[.dest], sizeof value
 	dec	[.count]
 	jnz	.read_code
-	pop	rcx
-	pop	dest
+;	pop	rcx	; .count
+;	pop	rax	; .dest
+	lea	rsp, [rsp + sizeof .intern_item]
 .read_code:
 	lods	byte[rsi]
 	cmp	al, PREFIX_SMALL_BLOCK
@@ -437,24 +443,36 @@ CODE_INT8		:= 0x0
 .read_block:
 	cmp	rcx, 0
 	jz	.read_block_0
-;	Здесь следует проверить Object_tag и выполнить OFreshOID
-	cmp	eax, Object_tag
-;	jz	.read_block_object
-
-	push	dest
-	push	rcx
-
-	to_wosize rcx
-	or	rax, rcx
-	or	rax, intern_color
+	lea	rsp, [rsp - sizeof .intern_item]
+	mov	[.count], rcx
+	mov	rdx, rcx
+	to_wosize rdx
+	or	rdx, intern_color
+	cmp	eax, Object_tag	; al
+	lea	rax, [rax + rdx]	; вместо OR, что бы сохранить флаги
 	stos	Val_header[intern_dest]
+	mov	[.dest], intern_dest
+	jnz	.read_block_rest
+;	Элементы объекта за исключением заголовка.
+	sub	[.count], 2
+;	CF = 1 или ZF = 1 -- нет элементов, копировать нечего
+	jna	.read_block_2 
+	add	[.dest], 2
+;	Здесь следует запланировать OFreshOID
+int3
+;	Первые два элемента: таблица методов и OID
+	lea	rsp, [rsp - sizeof .intern_item]
+.read_block_2:
+	mov	[.count], 2
+	mov	[.dest], intern_dest
+.read_block_rest:
 	mov	rax, intern_dest
+	lea	intern_dest, [intern_dest + sizeof value * rcx]
 	jmp	.read_item_ok
 .read_block_0:
 ;	(((value) (((header_t *) (&(caml_atom_table [(tag)]))) + 1)))
 	lea	rax, [caml_atom_table + (rax + 1) * sizeof value]
 	jmp	.read_item_ok
-.read_block_object:int3
 
 .small_string:
 ;	Длина строки
@@ -472,6 +490,7 @@ CODE_INT8		:= 0x0
 	shl	rax, 10 - sizeof_value_log2
 	or	rax, String_tag or intern_color
 	stos	Val_header[intern_dest]
+	push	intern_dest
 rep	movs	byte[intern_dest], [rsi]
 	mov	ecx, edx
 	xor	eax, eax
@@ -479,6 +498,7 @@ rep	stos	byte[intern_dest]
 ;	Завершающий байт = размер блока в байтах - 1 - длина строки
 	mov	eax, edx
 	stos	byte[intern_dest]
+	pop	rax
 	jmp	.read_item_ok
 
 .code_block32:
@@ -500,9 +520,9 @@ rep	stos	byte[intern_dest]
 	inc	rsi
 	mov	rax, (1 + 1) wosize or Custom_tag or intern_color
 	stos	Val_header[intern_dest]
-	push	intern_dest
 	lea	rax, [caml_int64_ops]
-	stos	qword[intern_dest]	
+	stos	qword[intern_dest]
+	push	intern_dest
 	lods	qword[rsi]
 	bswap	rax
 	stos	qword[intern_dest]
