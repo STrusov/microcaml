@@ -433,6 +433,7 @@ CODE_INT8		:= 0x0
 	lods	byte[rsi]
 	shl	eax, 8
 	lods	byte[rsi]
+	movsx	rax, ax
 	jmp	.read_int_ok
 
 .small_blocl:
