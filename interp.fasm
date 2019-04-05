@@ -478,7 +478,6 @@ end Instruct
 
 Instruct	GETGLOBAL
 Instruct_stub
-int3
 	mov	eax, [opcode.1]
 	next_opcode
 	mov	accu, [caml_global_data]
