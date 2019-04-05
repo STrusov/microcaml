@@ -424,8 +424,8 @@ CODE_INT8		:= 0x0
 	jmp	.read_int_ok
 
 .code_int8:
-	xor	eax, eax
-	lods	byte[rsi]
+	movsx	rax, byte[rsi]
+	inc	rsi
 	jmp	.read_int_ok
 
 .code_int16:
