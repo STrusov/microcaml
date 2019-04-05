@@ -337,21 +337,10 @@ Intext_magic_number_small := 0x8495A6BE bswap 4
 ;	Здесь сохраняются объекты при чтении из DATA.
 intern_dest	equ alloc_small_ptr	; intern_block == intern_dest + sizeof value
 intern_color	:= Caml_black	; может быть и Caml_white
+; 	intern_alloc()
 ;	Таблица ссылок на сохранённые объекты.
 dest		equ rbx
-;	mov	dest, alloc_small_ptr
-
-; 	intern_alloc()
-;	Заголовок будет (?) перезаписан при дальнейшем чтении.
-;	to_wosize	eax
-;	or	eax, Caml_black or String_tag
-;	stos	qword[alloc_small_ptr]
-;
-;	mov	dest, alloc_small_ptr
-;	mov	[caml_global_data], dest
 	lea	dest, [caml_global_data]
-;
-;	lea	alloc_small_ptr, [alloc_small_ptr + rcx*sizeof value]	; +1?
 
 ;	intern_rec()
 ;	Развёрнутая рекурсия. Счётчики циклов сохраняем на стеке.
@@ -361,8 +350,6 @@ dest		equ rbx
 		.dest	dq ?
 	end virtual
 	mov	rbp, rsp
-;	push	dest
-;	pushq	1
 	jmp	.read_code
 ;	Целые сохраняются в таблице ссылок непосредственно как значения.
 .read_int_ok:
@@ -386,29 +373,21 @@ CODE_INT8		:= 0x0
 	add	[.dest], sizeof value
 	dec	[.count]
 	jnz	.read_code
-;	pop	rcx	; .count
-;	pop	rax	; .dest
 	lea	rsp, [rsp + sizeof .intern_item]
 .read_code:
 	lods	byte[rsi]
 	cmp	al, PREFIX_SMALL_BLOCK
 	jae	.small_blocl
-
 	cmp	al, PREFIX_SMALL_INT
 	jae	.small_int
-
 	cmp	al, PREFIX_SMALL_STRING
 	jae	.small_string
-
 	cmp	al, CODE_BLOCK32
 	jz	.code_block32
-	
 	cmp	al, CODE_INT8
 	jz	.code_int8
-	
 ;	cmp	al, CODE_INT16
 ;	jz	.code_int16
-	
 	cmp	al, CODE_CUSTOM
 	jz	.code_custom
 
@@ -530,10 +509,9 @@ rep	stos	byte[intern_dest]
 	pop	rax
 	jmp	.read_item_ok
 
-.read_items_finished:
 restore	intern_dest
 restore dest
-;	mov	alloc_small_ptr, alloc_small_ptr_backup
+.read_items_finished:
 ;	Подготавливаем виртуальную машину и переходим к первой инструкции
 	mov	vm_pc, [.sect_code]
 	
