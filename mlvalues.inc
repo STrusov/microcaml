@@ -24,6 +24,8 @@ Val_emptylist	:= Val_int_0
 assert Val_int_0 = 1
 assert Val_int_1 = 3
 
+Atom equ caml_atom_table + sizeof value + sizeof value *
+
 ; целое из OCaml Value
 macro Int_val	reg
 	shr	reg, 1

@@ -1,6 +1,6 @@
-;  pc = prog;		r15 или rsi?
-;  extra_args = 0;
-;  env = Atom(0);	rbp ?
+;  pc = prog;		r15 (или rsi?)
+;  extra_args = 0;	r12
+;  env = Atom(0);	r13
 ;  accu = Val_int(0);	rdx или надо сохранять?
 
 ; Инициализируется адресом байткода для интерпретации.
@@ -22,6 +22,9 @@ end macro
 ; Аккумулятор можно рассматривать как вершину стека вне ОЗУ.
 accu	equ rdx
 accud	equ edx
+
+env		equ r13
+extra_args	equ r12
 
 virtual at rsp
 label	vm_sp:	qword
@@ -53,6 +56,8 @@ vm_base	equ rbx
 macro	interpreter_init
 interprete:
 	lea	vm_base, [execute_instruction]
+	zero	extra_args
+	mov	env, Atom 0
 	mov	accud, Val_int_0
 end macro
 
@@ -332,9 +337,14 @@ end Instruct
 
 
 Instruct	APPLY1
-Instruct_stub
-
-;	Instruct_next
+	pop	rax
+	push	env
+	push	vm_pc
+	push	rax
+	mov	vm_pc, [accu]
+	mov	env, accu
+	zero	extra_args
+	Instruct_next
 Instruct_size
 end Instruct
 
@@ -384,38 +394,17 @@ Instruct	GRAB
 end Instruct
 
 
-; Заглушка для nvars = 0
 ; Замыкание.
 ; Размер 3. Аргументы опкода:
 ; 1. Количество аргументов замыкания;
 ; 2. Относительный адрес замыкания (смещение для счётчика инструкций).
 Instruct	CLOSURE
 Instruct_stub
-;      int nvars = *pc++;
-;      int i;
-	mov	ecx, [opcode.1]	; Количество аргументов замыкания.
-;	next_opcode
-;      if (nvars > 0) *--sp = accu;
-;        /* nvars + 1 <= Max_young_wosize, can allocate in minor heap */
-;        Alloc_small(accu, 1 + nvars, Closure_tag);
-	mov	accu, alloc_small_ptr
-	; для nvars == 0
-	mov	eax, 1 wosize or Caml_black or Closure_tag
-	stos	qword[alloc_small_ptr]
-	mov	eax, [opcode.2]
-	lea	rax, [opcode.2 + rax * sizeof opcode]
-	stos	qword[alloc_small_ptr]
-;        for (i = 0; i < nvars; i++) Field(accu, i + 1) = sp[i];
-;      /* The code pointer is not in the heap, so no need to go through
-;         caml_initialize. */
-;      Code_val(accu) = pc + *pc;
-.next2:	next_opcode 2
-	Instruct_next
+	jmp	CLOSURE_impl
 Instruct_size
 end Instruct
 
 
-; Заглушка для nfuncs = 1 и nvars = 0
 ; Рекурсивное замыкание.
 ; Переменный размер:
 ; 1. Количество функторов;
@@ -424,14 +413,7 @@ end Instruct
 ;     адрес замыкания.
 Instruct	CLOSUREREC
 Instruct_stub
-;	int nfuncs = *pc++;
-	mov	ecx, [opcode.1]	; Количество функторов.
-	next_opcode
-	jmp	Instruct_CLOSURE
-;	int nvars = *pc++;
-;	следом идут смещения для vm_pc (nfuncs шт.); вычисленный адрес
-;	переносится в хранилище, за ним аргументы (снимаются со стека).
-
+	jmp	CLOSUREREC_impl
 Instruct_size
 end Instruct
 
@@ -477,7 +459,7 @@ end Instruct
 
 
 Instruct	GETGLOBAL
-Instruct_stub
+;	Может ли поле иметь отрицательное смещение?
 	mov	eax, [opcode.1]
 	next_opcode
 	mov	accu, [caml_global_data]
@@ -495,13 +477,12 @@ end Instruct
 
 
 Instruct	GETGLOBALFIELD
-Instruct_stub
+;	Может ли поле иметь отрицательное смещение?
 	mov	eax, [opcode.1]
 	mov	accu, [caml_global_data]
-;	mov	accu, [accu + sizeof value]
-	mov	eax, [opcode.1]	
-;	mov	accu, [accu + sizeof caml_global_data]
-	mov	accu, 0000
+	mov	accu, [accu + rax * sizeof value]
+	mov	eax, [opcode.2]
+	mov	accu, [accu + rax * sizeof value]
 	next_opcode 2
 	Instruct_next
 Instruct_size
@@ -519,8 +500,9 @@ Instruct	SETGLOBAL
 Instruct_stub
 	mov	eax, [opcode.1]
 	next_opcode
-;      caml_modify(&Field(caml_global_data, *pc), accu);
-
+;	caml_modify(&Field(caml_global_data, *pc), accu);
+	mov	rcx, [caml_global_data]
+	mov	[rcx + rax * sizeof value], accu
 	mov	accu, Val_unit
 	Instruct_next
 
@@ -711,7 +693,7 @@ end Instruct
 ; Переходы, в том числе условные
 
 Instruct	BRANCH
-	mov	eax, [opcode.1]
+	mov	rax, [opcode.1]
 	lea	vm_pc, [opcode.1 + rax * sizeof opcode]
 	Instruct_next
 Instruct_size
@@ -1115,6 +1097,77 @@ end Instruct
 ;end Instruct
 
 vm_end_lbl:
+
+CLOSURE_impl:
+	mov	ecx, [opcode.1]	; Количество аргументов замыкания.
+	jecxz	.no_arg
+	push	accu	; 1й аргумент для дальнейшего копирования.
+.no_arg:
+;	Alloc_small(accu, 1 + nvars, Closure_tag);
+	lea	eax, [ecx+1]
+	to_wosize	eax 
+	or	eax, Caml_black or Closure_tag
+	stos	Val_header[alloc_small_ptr]
+	mov	accu, alloc_small_ptr
+	movsxd	rax, [opcode.2]
+	lea	rax, [opcode.2 + rax * sizeof opcode]
+;	Сначала сохраняем адрес кода (pc + *pc), затем копируем аргументы со стека.
+.copy:	stos	qword[alloc_small_ptr]
+;	for (i = 0; i < nvars; i++) Field(accu, i + 1) = sp[i];
+	jecxz	.next
+	pop	rax
+	dec	ecx
+	jmp	.copy
+.next:	next_opcode 2
+	Instruct_next
+display_num_ln "CLOSURE_impl: ", $-CLOSURE_impl
+
+
+CLOSUREREC_impl:
+	mov	eax, [opcode.1]	; Количество функторов.
+	mov	ecx, [opcode.2]	; Количество аргументов замыкания.
+;		следом идут смещения для vm_pc (nfuncs шт.); вычисленный адрес
+;		переносится в хранилище, за ним аргументы (снимаются со стека)
+	lea	eax, [2*eax+ecx-1]
+	mov	esi, eax
+	to_wosize eax
+	or	eax, Caml_black or Closure_tag
+	stos	Val_header[alloc_small_ptr]
+	mov	accu, alloc_small_ptr
+	lea	alloc_small_ptr, [alloc_small_ptr + rsi * sizeof value]
+;	Копируем аргументы (аккумулятор и со стека), если они есть.
+	jecxz	.infix
+	mov	rax, accu
+.cpa:	stos	qword[alloc_small_ptr]
+;	p = &Field(accu, nfuncs * 2 - 1);
+;	for (i = 0; i < nvars; i++, p++) *p = sp[i];
+	dec	ecx
+	jecxz	.infix
+	pop	rax
+	jmp	.cpa
+.infix:	; Копируем указатели на код, предварая их инфиксными заголовками, кроме 1го.
+	mov	rsi, accu
+	zero	ecx
+	mov	r8d, [opcode.1]
+	next_opcode 2
+	jmp	.cpp
+.cpi:	mov	eax, ecx
+	to_wosize eax
+	or	eax, Infix_tag or Caml_white
+	mov	[rsi], rax
+	lea	rsi, [rsi+sizeof value]
+.cpp:	push	rsi
+	movsxd	rax, [opcode.1]
+	next_opcode
+	lea	rax, [vm_pc + rax * sizeof opcode]
+	mov	[rsi], rax
+	lea	rsi, [rsi+sizeof value]
+	inc	ecx
+	cmp	ecx, r8d
+	jc	.cpi
+	Instruct_next	
+display_num_ln "CLOSUREREC_impl: ", $-CLOSUREREC_impl
+
 
 display_num_ln "Общее количество инструкций виртуальной машины: ", ..INSTRUCT_COUNT
 display_num_ln "Занимают байт: ", vm_end_lbl - vm_base_lbl
