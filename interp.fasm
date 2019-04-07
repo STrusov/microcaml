@@ -310,7 +310,10 @@ end Instruct
 
 
 Instruct	PUSHENVACC2
-
+	push	accu
+	mov	accu, [env + 2 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
@@ -353,6 +356,7 @@ end Instruct
 
 
 Instruct	APPLY2
+int3
 
 end Instruct
 
