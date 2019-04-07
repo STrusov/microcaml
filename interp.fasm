@@ -542,10 +542,9 @@ Instruct	MAKEBLOCK
 	to_wosize	eax
 	or	eax, Caml_black
 	or	eax, [opcode.2]		; tag
-;	next_opcode	2
 	push	accu
-	mov	accu, alloc_small_ptr	; Адрес начала блока
-	stos	qword[alloc_small_ptr]
+	stos	Val_header[alloc_small_ptr]
+	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
 .copy:	pop	rax
 	stos	qword[alloc_small_ptr]
 	loopnz	.copy
@@ -559,10 +558,10 @@ Instruct	MAKEBLOCK1
 	mov	eax, [opcode.1]	; tag
 	next_opcode
 	or	eax, 1 wosize or Caml_black
-	stos	qword[alloc_small_ptr]
+	stos	Val_header[alloc_small_ptr]
 	mov	rax, accu
+	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
 	stos	qword[alloc_small_ptr]
-	lea	accu, [alloc_small_ptr-2*sizeof value]	; Адрес начала блока.
 	Instruct_next
 
 ;	хвост MAKEBLOCK
