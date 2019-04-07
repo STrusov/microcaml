@@ -358,7 +358,18 @@ end Instruct
 
 
 Instruct	APPLY2
-
+	pop	rax
+	pop	rcx
+	Val_int	extra_args
+	push	extra_args
+	push	env
+	push	vm_pc
+	push	rcx
+	push	rax
+	mov	vm_pc, [accu]
+	mov	env, accu
+	mov	extra_args, 1
+	Instruct_next
 end Instruct
 
 
