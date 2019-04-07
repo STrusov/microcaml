@@ -344,6 +344,8 @@ end Instruct
 
 Instruct	APPLY1
 	pop	rax
+	Val_int	extra_args
+	push	extra_args
 	push	env
 	push	vm_pc
 	push	rax
@@ -356,7 +358,6 @@ end Instruct
 
 
 Instruct	APPLY2
-int3
 
 end Instruct
 

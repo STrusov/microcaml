@@ -16,13 +16,19 @@ Val_header	equ qword
 ; Указатели имеют нулевой младщий бит.
 ; #define Val_long(x)     ((intnat) (((uintnat)(x) << 1)) + 1)
 ; lea	accu, [Val_int accu]
-Val_int	equ 1 + 2 *
+define Val_int	1 + 2 *
 Val_int_0	:= Val_int 0
 Val_int_1	:= Val_int 1
 Val_unit	:= Val_int_0
 Val_emptylist	:= Val_int_0
 assert Val_int_0 = 1
 assert Val_int_1 = 3
+
+; OCaml Value из целого
+macro Val_int	reg
+	lea	reg, [2*reg+1]
+end macro
+
 
 Atom equ caml_atom_table + sizeof value + sizeof value *
 
