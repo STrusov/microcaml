@@ -531,7 +531,8 @@ C_primitive caml_format_float
 end C_primitive
 
 
-
+; RDI - формат
+; RSI - целое
 C_primitive caml_format_int
 
 end C_primitive
@@ -1707,7 +1708,8 @@ end C_primitive
 ; CAMLprim value caml_register_named_value(value vname, value val)
 C_primitive caml_register_named_value
 C_primitive_stub
-
+; Вызыввается для "Pervasives.array_bound_error", "Pervasives.do_at_exit"
+	mov	rax, Val_unit
 	ret
 end C_primitive
 
