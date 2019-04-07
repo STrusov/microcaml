@@ -409,7 +409,15 @@ end Instruct
 
 
 Instruct	GRAB
+Instruct_stub
+	mov	eax, [opcode.1]
+	sub	extra_args, rax
+	jnc	.next
+int3
+	add	extra_args, rax
 
+.next:	Instruct_next
+Instruct_size
 end Instruct
 
 
