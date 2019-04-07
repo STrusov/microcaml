@@ -52,6 +52,10 @@ macro to_wosize reg
 	shl	reg, 10
 end macro
 
+macro from_wosize reg
+	shr	reg, 10
+end macro
+
 Caml_white	:= 0 shl 8
 Caml_gray	:= 1 shl 8
 Caml_blue	:= 2 shl 8
