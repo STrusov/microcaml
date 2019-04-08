@@ -1212,7 +1212,7 @@ end C_primitive
 
 ; RDI - виртуальный канал
 C_primitive caml_ml_flush
-C_primitive_stub
+;	В оригинале обеспечен эксклюзивный доступ
 	virtual at rdi - sizeof Val_header
 	.co	channel_operations_object
 	end virtual
