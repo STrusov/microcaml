@@ -1210,9 +1210,22 @@ C_primitive caml_ml_enable_runtime_warnings
 end C_primitive
 
 
-
+; RDI - канал
 C_primitive caml_ml_flush
-
+C_primitive_stub
+int3
+	virtual at rdi - sizeof Val_header
+	.co	channel_operations_object
+	end virtual
+	virtual at rax
+	.channel	channel
+	end virtual
+	mov	.channel, [.co.channel]
+	cmp	[.channel.fd], -1
+	jz	.exit
+;	caml_flush()
+.exit:	mov	eax, Val_unit
+	ret
 end C_primitive
 
 
@@ -1343,7 +1356,10 @@ end C_primitive
 
 
 C_primitive caml_ml_out_channels_list
-
+C_primitive_stub
+int3
+	mov	eax, Val_emptylist
+	retn
 end C_primitive
 
 
