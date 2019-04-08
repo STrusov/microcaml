@@ -1210,20 +1210,21 @@ C_primitive caml_ml_enable_runtime_warnings
 end C_primitive
 
 
-; RDI - канал
+; RDI - виртуальный канал
 C_primitive caml_ml_flush
 C_primitive_stub
-int3
 	virtual at rdi - sizeof Val_header
 	.co	channel_operations_object
 	end virtual
-	virtual at rax
+	mov	rdi, [.co.channel]
+	virtual at rdi
 	.channel	channel
 	end virtual
-	mov	.channel, [.co.channel]
 	cmp	[.channel.fd], -1
 	jz	.exit
-;	caml_flush()
+.again:	call	caml_flush_partial
+	test	eax, eax
+	jz	.again
 .exit:	mov	eax, Val_unit
 	ret
 end C_primitive
@@ -1369,7 +1370,7 @@ caml_ml_output:
 ;	jmp	caml_ml_output_bytes
 ;end C_primitive
 
-; RDI - канал
+; RDI - виртуальный канал
 ; RSI - буфер
 ; RDX - смещение от начала в буфера
 ; RCX - длина
@@ -1394,9 +1395,92 @@ C_primitive_stub
 end C_primitive
 
 
+; RDI - описатель (дескриптор) файла
+; RSI - флаги (не используются)
+; RDX - начальный адрес буфера
+; RCX - длина
+;proc caml_write_fd
 
+; RDI - описатель (дескриптор) файла.	Значение сохраняется.
+; RSI - начальный адрес буфера. 	Значение сохраняется.
+; RDX - длина
+proc caml_write	;_fd_noflag
+.again:	push	rdi rsi rdx
+	sys.write
+	pop	rdx rsi rdi
+	j_err	.err
+	ret
+.err:	cmp	rax, -EINTR
+	jz	.again
+	cmp	rax, -EAGAIN
+	jz	.eagain
+	cmp	rax, -EWOULDBLOCK
+	jz	.eagain
+.fail:
+int3
+.eagain:cmp	rdx, 1
+	jbe	.fail
+	mov	rdx, 1
+	jmp	.again
+end proc
+
+
+; RDI - channel. 	Значение сохраняется.
+; Возвращает 1 если содержимое буфера успешно отправлено в файл.
+proc caml_flush_partial
+	virtual at rdi
+	.channel	channel
+	end virtual
+	mov	rdx, [.channel.curr]	; 3й для caml_write
+	lea	rsi, [.channel.buff]	; 2й для caml_write
+	sub	rdx, rsi	; количество байт для записи
+	jbe	.exit
+;	push	rsi
+	push	rdi rdx
+	mov	edi, [.channel.fd]	; 1й для caml_write
+	call	caml_write
+	pop	rdx rdi
+;	pop	rsi
+	add	[.channel.offset], rax
+	sub	[.channel.curr], rax
+	sub	rdx, rax
+;	jz	.exit
+	mov	rcx, rdx
+	push	rdi
+	lea	rsi, [rdi + rax]
+rep	movs	byte[rdi], [rsi]
+	pop	rdi
+.exit:	zero	eax
+	sub	rsi, [.channel.curr]
+	setz	al
+	ret
+end proc
+
+
+; RDI - виртуальный канал
+; RSI - символ
 C_primitive caml_ml_output_char
-
+	virtual at rdi - sizeof Val_header
+	.co	channel_operations_object
+	end virtual
+	mov	rdi, [.co.channel]
+	virtual at rdi
+	.channel	channel
+	end virtual
+	Long_val rsi
+	mov	rax, [.channel.curr]
+	cmp	rax, [.channel.end]
+	jc	.putch
+;	push	.channel
+	push	rsi
+	call	caml_flush_partial
+	pop	rsi
+;	pop	.channel
+.putch:	mov	rax, [.channel.curr]
+	mov	byte[rax], sil
+	inc	 [.channel.curr]
+	mov	eax, Val_unit
+	ret
 end C_primitive
 
 
