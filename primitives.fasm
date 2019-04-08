@@ -1246,66 +1246,98 @@ C_primitive caml_ml_input_scan_line
 end C_primitive
 
 
-
-IO_BUFFER_SIZE	:= 4096 ; В оригинале 65536
+IO_BUFFER_SIZE	:= 4096 - 5 * 8 ; В оригинале 65536
 struct channel
-	fd	dd ?	; /* Unix file descriptor */
-	offset	dq ?	; /* Absolute position of fd in the file */
-	end	dq ?	; /* Physical end of the buffer */
-	curr	dq ?	; /* Current position in the buffer */
-	max	dq ?	; /* Logical end of the buffer (for input) */
-	mutex	dq ?	; /* Placeholder for mutex (for systhreads) */
-	next	dq ?
-	prev	dq ?	;/* Double chaining of channels (flush_all) */
-	revealed	dd ?	; /* For Cash only */
-	old_revealed	dd ?	; /* For Cash only */
-	refcount	dd ?	; /* For flush_all and for Cash */
-	flags	dd ?	; /* Bitfield */
-	buff	rb IO_BUFFER_SIZE	; /* The buffer itself */
-	name	dq ?	; char* /* Optional name (to report fd leaks) */
+	.fd	dd ?	; Описатель файла
+	.flags	dd ?	; Флаги (поле перемещено)
+	.offset	dq ?	; Позиция в файле
+	.end	dq ?	; Адрес старшей границы буфера
+	.curr	dq ?	; Адрес текущей позиции буфера
+	.max	dq ?	; Адрес границы буфера для чтения
+;	.mutex	dq ?	; /* Placeholder for mutex (for systhreads) */
+;	.next	dq ?	; Буфера организованы в двусвязный список
+;	.prev	dq ?	; для flush_all
+;	.revealed	dd ?	; /* For Cash only */
+;	.old_revealed	dd ?	; /* For Cash only */
+;	.refcount	dd ?	; /* For flush_all and for Cash */
+	.buff	rb IO_BUFFER_SIZE	; Тело буфера
+;	.name	dq ?	; char* /* Optional name (to report fd leaks) */
 end struct
+assert 4096 = sizeof ch_stdin
 
 ; RDI - int fd
+; Реализовано только для стандартных каналов, буфера выделены статически.
 proc caml_open_descriptor_in
-
+	cmp	edi, STDERR_FILENO
+	jbe	.stdfile
+int3
+.stdfile:
+	virtual at rax
+	.channel	channel
+	end virtual
+	mov	.channel, rdi
+	shl	.channel, bsr 4096
+	lea	.channel, [ch_stdin + .channel]
+	mov	[.channel.fd], edi
+	and	[.channel.flags], 0
+	and	[.channel.offset], 0	; lseek(fd, 0, SEEK_CUR)
+	lea	rcx, [.channel.buff]
+	mov	[.channel.curr], rcx
+	mov	[.channel.max], rcx
+	add	rcx, IO_BUFFER_SIZE
+	mov	[.channel.end], rcx
 	ret
 end proc
 
-struct custom_operations_object
+
+struct channel_operations_object
 	.tag		dq ?
 	.operations	dq ?
 	.channel	dq ?
 end struct
 
+
 ; RDI - fd Value
+; Возвращает адрес объекта
 C_primitive caml_ml_open_descriptor_in
 C_primitive_stub
 ;  return caml_alloc_channel(caml_open_descriptor_in(Int_val(fd)));
-	Int_val	rdi
+	Int_val	edi
 	call	caml_open_descriptor_in
-
-;	caml_alloc_channel
-;	value res;
+.alloc_channel:
+;	Для сборщика мусора требуется:
 ;	chan->refcount++;             /* prevent finalization during next alloc */
-;	res = caml_alloc_custom(&channel_operations, sizeof(struct channel *), 1, 1000);
-;	Channel(res) = chan;
-;	return res;
+;	add_to_custom_table (&caml_custom_table, result, mem, max);
 	virtual at alloc_small_ptr_backup
-		.co	custom_operations_object
+	.co	channel_operations_object
 	end virtual
 	mov	[.co.tag], 3 wosize or Caml_black or Custom_tag
 	mov	[.co.operations], channel_operations
 	mov	[.co.channel], rax
+	lea	rax, [alloc_small_ptr_backup + sizeof Val_header]
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof .co]
 	ret
 end C_primitive
 
 
+; RDI - int fd
+proc caml_open_descriptor_out
+	call	caml_open_descriptor_in
+	virtual at rax
+	.channel	channel
+	end virtual
+	mov	[.channel.max], 0
+	ret
+end proc
+
+
 ; RDI - fd Value
 C_primitive caml_ml_open_descriptor_out
 C_primitive_stub
-
-	ret
+;	return caml_alloc_channel(caml_open_descriptor_out(Int_val(fd)));
+	Int_val	edi
+	call	caml_open_descriptor_out
+	jmp	caml_ml_open_descriptor_in.alloc_channel
 end C_primitive
 
 
@@ -1315,14 +1347,18 @@ C_primitive caml_ml_out_channels_list
 end C_primitive
 
 
+; см. caml_ml_output_bytes
+;C_primitive caml_ml_output
+caml_ml_output:
+;	jmp	caml_ml_output_bytes
+;end C_primitive
 
-C_primitive caml_ml_output
-
-end C_primitive
-
-
-
+; RDI - канал
+; RSI - буфер
+; RDX - смещение от начала в буфера
+; RCX - длина
 C_primitive caml_ml_output_bytes
+C_primitive_stub
 
 end C_primitive
 

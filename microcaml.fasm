@@ -602,4 +602,8 @@ caml_global_data	dq 0
 ;segment readable writeable
 section '.bss' writeable
 
+ch_stdin	channel
+ch_stdout	channel
+ch_srderr	channel
+
 heap_small	rb 4096
