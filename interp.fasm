@@ -424,6 +424,7 @@ end Instruct
 Instruct	GRAB
 Instruct_stub
 	mov	eax, [opcode.1]
+	next_opcode
 	sub	extra_args, rax
 	jnc	.next
 int3
