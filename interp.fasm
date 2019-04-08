@@ -277,7 +277,9 @@ end Instruct
 
 
 Instruct	ENVACC1
-
+	mov	accu, [env + 1 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
