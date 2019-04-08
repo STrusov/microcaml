@@ -37,6 +37,11 @@ macro Int_val	reg
 	shr	reg, 1
 end macro
 
+; целое из OCaml Value
+macro Long_val	reg
+	shr	reg, 1
+end macro
+
 
 ;	Структура заголовка
 ;	+-----------------+------+-----+

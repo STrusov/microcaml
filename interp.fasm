@@ -399,7 +399,20 @@ end Instruct
 
 
 Instruct	RETURN
-
+Instruct_stub
+	mov	eax, [opcode.1]
+	next_opcode
+	lea	vm_sp, [vm_sp + rax * sizeof value]
+	test	extra_args, extra_args
+	jnz	.extra_args
+	pop	vm_pc
+	pop	env
+	pop	extra_args
+	Long_val extra_args
+	Instruct_next
+.extra_args:
+int3
+Instruct_size
 end Instruct
 
 
