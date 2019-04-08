@@ -1359,7 +1359,22 @@ caml_ml_output:
 ; RCX - длина
 C_primitive caml_ml_output_bytes
 C_primitive_stub
-
+;int3
+	virtual at rdi - sizeof Val_header
+	.co	channel_operations_object
+	end virtual
+	virtual at rax
+	.channel	channel
+	end virtual
+	mov	.channel, [.co.channel]
+	mov	edi, [.channel.fd]
+	Int_val	rdx
+	lea	rsi, [rsi + rdx]
+	Int_val	rcx
+	mov	rdx, rcx
+	sys.write
+	mov	eax, Val_unit
+	ret
 end C_primitive
 
 
