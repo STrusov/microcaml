@@ -649,7 +649,9 @@ end Instruct
 
 
 Instruct	GETFIELD0
-
+	mov	accu, [accu + 0 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
