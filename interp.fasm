@@ -758,7 +758,14 @@ end Instruct
 
 
 Instruct	BRANCHIFNOT
-
+	cmp	accu, Val_false
+	jz	.br
+	next_opcode
+	Instruct_next
+.br:	movsxd	rax, [opcode.1]
+	lea	vm_pc, [opcode.1 + rax * sizeof opcode]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
