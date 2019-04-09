@@ -110,7 +110,6 @@ Instruct_#name:
 	if ($-ELF.SECTION_BASE) mod instruction_size <> 0
 		err 'Инструкции должны быть выровнены'
 	end if
-
 end macro
 
 macro end?.Instruct!
@@ -1145,9 +1144,7 @@ end Instruct
 
 
 Instruct	BREAK
-jmp rax
-jmp rbp
-jmp r15
+
 end Instruct
 
 
