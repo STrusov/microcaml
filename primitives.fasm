@@ -1363,6 +1363,31 @@ int3
 	retn
 end C_primitive
 
+; RDI - канал
+; RSI - начальный адрес блока, отправляемого в канал.
+; RDX - длина
+; Возвращает количество отправленных байт.
+proc caml_putblock
+	virtual at rax
+	.channel	channel
+	end virtual
+	mov	rax, rdi
+	mov	rcx, [.channel.end]
+	sub	rcx, [.channel.curr]
+	cmp	rdx, rcx
+	jae	.over
+;	Места в буфере канала достаточно, копируем блок.
+	mov	rcx, rdx
+	mov	rdi, [.channel.curr]
+rep	movs	byte[rdi], [rsi]
+	mov	[.channel.curr], rdi
+	mov	rax, rdx
+	ret
+.over:
+int3
+;	mov	edi, [.channel.fd]
+end proc
+
 
 ; см. caml_ml_output_bytes
 ;C_primitive caml_ml_output
@@ -1376,21 +1401,22 @@ caml_ml_output:
 ; RCX - длина
 C_primitive caml_ml_output_bytes
 C_primitive_stub
-;int3
 	virtual at rdi - sizeof Val_header
 	.co	channel_operations_object
 	end virtual
-	virtual at rax
-	.channel	channel
-	end virtual
-	mov	.channel, [.co.channel]
-	mov	edi, [.channel.fd]
+	mov	rdi, [.co.channel]
 	Int_val	rdx
 	lea	rsi, [rsi + rdx]
 	Int_val	rcx
+	jecxz	.exit
 	mov	rdx, rcx
-	sys.write
-	mov	eax, Val_unit
+.again:	push	rsi rdx
+	call	caml_putblock
+	pop	rdx rsi
+	add	rsi, rax
+	sub	rdx, rax
+	ja	.again
+.exit:	mov	eax, Val_unit
 	ret
 end C_primitive
 
