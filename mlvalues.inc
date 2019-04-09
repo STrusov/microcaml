@@ -34,11 +34,16 @@ Atom equ caml_atom_table + sizeof value + sizeof value *
 
 ; целое из OCaml Value
 macro Int_val	reg
-	shr	reg, 1
+	sar	reg, 1
 end macro
 
 ; целое из OCaml Value
 macro Long_val	reg
+	sar	reg, 1
+end macro
+
+; беззнаковое целое из OCaml Value
+macro Ulong_val	reg
 	shr	reg, 1
 end macro
 
