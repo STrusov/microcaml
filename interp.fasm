@@ -97,6 +97,7 @@ end macro
 
 
 ..INSTRUCT_COUNT = 0
+..INSTRUCT_IMPLEMENTED = 0
 INSTRUCT_NAMES equ
 
 
@@ -121,6 +122,8 @@ macro end?.Instruct!
 			mov	rsi, .instruct_name shr 64 and (1 shl 64 - 1)
 		end if
 		jmp	undefined_instruction
+	else
+		..INSTRUCT_IMPLEMENTED = ..INSTRUCT_IMPLEMENTED + 1
 	end if
 	align_code instruction_size
 ;	display_num_ln ' ' , .end - .
@@ -1235,7 +1238,8 @@ CLOSUREREC_impl:
 display_num_ln "CLOSUREREC_impl: ", $-CLOSUREREC_impl
 
 
-display_num_ln "Общее количество инструкций виртуальной машины: ", ..INSTRUCT_COUNT
+display_num "Реализовано инструкций виртуальной машины: ", ..INSTRUCT_IMPLEMENTED
+display_num_ln " из ", ..INSTRUCT_COUNT
 display_num_ln "Занимают байт: ", vm_end_lbl - vm_base_lbl
 
 ; Выводим наименование (в регистре RDI) неимплементированной инструкции.
