@@ -1133,7 +1133,7 @@ end Instruct
 
 
 Instruct	STOP
-	mov	rax, accu
+	mov	rdi, accu
 	jmp	caml_sys_exit
 end Instruct
 
