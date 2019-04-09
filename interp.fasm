@@ -1226,8 +1226,8 @@ CLOSUREREC_impl:
 	lea	rsi, [rsi+sizeof value]
 .cpp:	push	rsi
 	movsxd	rax, [opcode.1]
-	next_opcode
 	lea	rax, [vm_pc + rax * sizeof opcode]
+	next_opcode
 	mov	[rsi], rax
 	lea	rsi, [rsi+sizeof value]
 	inc	ecx
