@@ -1405,9 +1405,9 @@ C_primitive_stub
 	.co	channel_operations_object
 	end virtual
 	mov	rdi, [.co.channel]
-	Int_val	rdx
+	Ulong_val rdx
 	lea	rsi, [rsi + rdx]
-	Int_val	rcx
+	Ulong_val rcx
 	jecxz	.exit
 	mov	rdx, rcx
 .again:	push	rsi rdx
@@ -1493,7 +1493,7 @@ C_primitive caml_ml_output_char
 	virtual at rdi
 	.channel	channel
 	end virtual
-	Long_val rsi
+	Ulong_val esi
 	mov	rax, [.channel.curr]
 	cmp	rax, [.channel.end]
 	jc	.putch
