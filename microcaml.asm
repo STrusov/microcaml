@@ -94,7 +94,7 @@ EXEC_MAGIC2	:= 'X011'
 section '.text' executable align 32
 
 ; 	Интерататор размещаем в начале страницы для выравнивания
-include 'interp.fasm'
+include 'interp.asm'
 
 ; Вывод строки в stdout
 ; RSI - адрес строки
@@ -530,7 +530,7 @@ invalid_datasection_sig:
 	mov	edi, EINVAL
 	jmp	caml_sys_exit.int
 
-include 'primitives.fasm'
+include 'primitives.asm'
 
 ; Данные только для чтения
 ;segment readable

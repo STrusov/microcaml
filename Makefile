@@ -1,7 +1,7 @@
 TARGET = microcaml
 PREFIX ?= /usr/local
-SRCS = $(TARGET).fasm
-OBJS = $(SRCS:.fasm=.o)
+SRCS = $(TARGET).asm
+OBJS = $(SRCS:.asm=.o)
 FASM = fasmg
 LD = ld.bfd
 
