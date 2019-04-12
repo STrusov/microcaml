@@ -945,7 +945,10 @@ end Instruct
 
 
 Instruct	ADDINT
-
+	pop	rax
+	lea	accu, [accu + rax - 1]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
