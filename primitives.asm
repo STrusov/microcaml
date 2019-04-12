@@ -319,6 +319,7 @@ end C_primitive
 
 
 ; EDI - целое; количество байт для строки.
+; Возвращает адрес строки (за заголовком).
 proc caml_alloc_string
 	mov	ecx, edi
 ;	size = (len + sizeof(value)) / sizeof(value);
@@ -335,6 +336,7 @@ proc caml_alloc_string
 	shl	rdi, 10 - sizeof_value_log2
 	or	rdi, String_tag or Caml_black
 	mov	Val_header[alloc_small_ptr_backup], rdi
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (rcx + 1) * sizeof value]
 ;	Завершающий байт = размер блока в байтах - 1 - длина строки
 	bswap	rdx
