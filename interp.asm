@@ -861,7 +861,16 @@ end Instruct
 
 
 Instruct	C_CALL5
-
+	mov	eax, [opcode.1]
+	next_opcode
+	mov	alloc_small_ptr_backup, alloc_small_ptr	; rdi
+	mov	rdi, accu	; 1й
+	pop	rsi		; 2й
+	pop	rdx		; 3й (accu)
+	pop	rcx		; 4й
+	pop	r8		; 5й
+	jmp	Instruct_C_CALL2.exec
+Instruct_size
 end Instruct
 
 
