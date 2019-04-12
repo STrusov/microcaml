@@ -253,7 +253,10 @@ end Instruct
 
 
 Instruct	PUSHACC7
-
+	push	accu
+	mov	accu, [vm_sp.7]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
