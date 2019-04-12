@@ -14,6 +14,15 @@ macro C_primitive_stub
 	display .C_primitive_name, ' stub ',10
 end macro
 
+macro caml_invalid_argument msg
+	lea	rdi, [.m]
+	puts	rdi
+	mov	edi, EINVAL
+	jmp	caml_sys_exit.int
+.m	db	msg, 10, 0
+end macro
+
+
 C_primitive_first:
 
 C_primitive caml_abs_float
@@ -309,9 +318,36 @@ C_primitive caml_cosh_float
 end C_primitive
 
 
+; EDI - целое; количество байт для строки.
+proc caml_alloc_string
+	mov	ecx, edi
+;	size = (len + sizeof(value)) / sizeof(value);
+	add	edi, sizeof value
+	and	edi, not (sizeof value - 1)
+	mov	edx, edi
+	dec	edx
+	sub	edx, ecx
+	and	edx, (sizeof value - 1)
+	mov	ecx, edi
+	shr	ecx, sizeof_value_log2
+;	shr	rdi, sizeof_value_log2
+;	to_wosize rdi
+	shl	rdi, 10 - sizeof_value_log2
+	or	rdi, String_tag or Caml_black
+	mov	Val_header[alloc_small_ptr_backup], rdi
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (rcx + 1) * sizeof value]
+;	Завершающий байт = размер блока в байтах - 1 - длина строки
+	bswap	rdx
+	mov	[alloc_small_ptr_backup - sizeof value], rdx
+	ret
+end proc
 
+
+; RDI - количество байт для строки в формате OCaml.
 C_primitive caml_create_bytes
-
+	Long_val	rdi
+	jbe	caml_alloc_string
+	caml_invalid_argument "Bytes.create"
 end C_primitive
 
 
