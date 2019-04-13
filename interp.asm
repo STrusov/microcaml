@@ -812,7 +812,10 @@ end Instruct
 
 
 Instruct	CHECK_SIGNALS
-
+Instruct_stub
+	;       if (caml_something_to_do) goto process_signal;
+	Instruct_next
+Instruct_size
 end Instruct
 
 ; Вызов С функций
