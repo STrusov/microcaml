@@ -281,7 +281,12 @@ end Instruct
 
 
 Instruct	ASSIGN
-
+	mov	eax, [opcode.1]
+	next_opcode
+	mov	[rsp + rax * sizeof value], accu
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
