@@ -22,6 +22,7 @@ end macro
 ; Аккумулятор можно рассматривать как вершину стека вне ОЗУ.
 accu	equ rdx
 accud	equ edx
+accub	equ dl
 
 env		equ r13
 extra_args	equ r12
@@ -1054,7 +1055,13 @@ end Instruct
 
 
 Instruct	GTINT
-
+	pop	rax
+	cmp	accu, rax
+	setg	accub
+	Val_int	accu
+	and	accu,3
+	Instruct_next
+Instruct_size
 end Instruct
 
 
