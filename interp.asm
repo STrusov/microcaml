@@ -1055,7 +1055,13 @@ end Instruct
 
 
 Instruct	NEQ
-
+	pop	rax
+	cmp	accu, rax
+	setne	accub
+	Val_int	accu
+	and	accu,3
+	Instruct_next
+Instruct_size
 end Instruct
 
 
