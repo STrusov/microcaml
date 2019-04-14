@@ -1,3 +1,5 @@
 microcaml
 ocamlrun
 *.o
+test/*.cm*
+test/model*
