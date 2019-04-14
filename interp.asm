@@ -172,7 +172,8 @@ end Instruct
 
 
 Instruct	ACC4
-
+	mov	accu, [vm_sp.4]
+	Instruct_next
 end Instruct
 
 
