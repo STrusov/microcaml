@@ -1421,25 +1421,49 @@ end C_primitive
 ; RSI - начальный адрес блока, отправляемого в канал.
 ; RDX - длина
 ; Возвращает количество отправленных байт.
+; Поскольку размер буфера ограничен, может быть отправлена только часть блока.
 proc caml_putblock
 	virtual at rax
 	.channel	channel
 	end virtual
 	mov	rax, rdi
 	mov	rcx, [.channel.end]
-	sub	rcx, [.channel.curr]
+	mov	rdi, [.channel.curr]
+	sub	rcx, rdi
 	cmp	rdx, rcx
 	jae	.over
 ;	Места в буфере канала достаточно, копируем блок.
 	mov	rcx, rdx
-	mov	rdi, [.channel.curr]
 rep	movs	byte[rdi], [rsi]
 	mov	[.channel.curr], rdi
 	mov	rax, rdx
 	ret
-.over:
-int3
-;	mov	edi, [.channel.fd]
+.over:;	Сохраняем в буфер сколько поместится.
+	push	rcx
+rep	movs	byte[rdi], [rsi]
+	lea	rsi, [.channel.buff]
+	mov	rdx, [.channel.end]
+	sub	rdx, rsi	; длина
+	push	rsi rdx rax	; rax - channel
+	mov	edi, [.channel.fd]
+	call	caml_write
+	pop	rdx rcx	rdi	; теперь rdx = channel, rcx = длина, а rdi = буфер
+	cmp	rax, rcx
+	je	.all_written
+;	Перемещаем остаток в начало буфера.
+	sub	rcx, rax
+	lea	rsi, [rdi + rax]
+rep	movs	byte[rdi], [rsi]
+.all_written:
+	virtual at rdx
+	.chan	channel
+	end virtual
+	add	[.chan.offset], rax
+	neg	rax
+	add	rax, [.chan.end]
+	mov	[.chan.curr], rax
+	pop	rax
+	ret
 end proc
 
 
@@ -1464,9 +1488,9 @@ C_primitive_stub
 	Ulong_val rcx
 	jecxz	.exit
 	mov	rdx, rcx
-.again:	push	rsi rdx
+.again:	push	rdi rsi rdx
 	call	caml_putblock
-	pop	rdx rsi
+	pop	rdx rsi rdi
 	add	rsi, rax
 	sub	rdx, rax
 	ja	.again
