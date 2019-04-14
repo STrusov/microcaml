@@ -1314,7 +1314,7 @@ C_primitive caml_ml_input_scan_line
 end C_primitive
 
 
-IO_BUFFER_SIZE	:= 4096 - 5 * 8 ; В оригинале 65536
+IO_BUFFER_SIZE	:= 4096 - 6 * 8 ; В оригинале 65536
 struct channel
 	.fd	dd ?	; Описатель файла
 	.flags	dd ?	; Флаги (поле перемещено)
@@ -1323,7 +1323,7 @@ struct channel
 	.curr	dq ?	; Адрес текущей позиции буфера
 	.max	dq ?	; Адрес границы буфера для чтения
 ;	.mutex	dq ?	; /* Placeholder for mutex (for systhreads) */
-;	.next	dq ?	; Буфера организованы в двусвязный список
+	.next	dq ?	; Односвязный (в оригинале 2-х) список каналов
 ;	.prev	dq ?	; для flush_all
 ;	.revealed	dd ?	; /* For Cash only */
 ;	.old_revealed	dd ?	; /* For Cash only */
@@ -1354,6 +1354,9 @@ int3
 	mov	[.channel.max], rcx
 	add	rcx, IO_BUFFER_SIZE
 	mov	[.channel.end], rcx
+	mov	rcx, [caml_all_opened_channels]
+	mov	[.channel.next], rcx
+	mov	[caml_all_opened_channels], .channel
 	ret
 end proc
 
@@ -1372,7 +1375,12 @@ C_primitive_stub
 ;  return caml_alloc_channel(caml_open_descriptor_in(Int_val(fd)));
 	Int_val	edi
 	call	caml_open_descriptor_in
-.alloc_channel:
+end C_primitive
+; продолжает выполнение.
+
+; RAX - адрес канала
+; Возвращает объект вирт. канала.
+caml_alloc_channel:
 ;	Для сборщика мусора требуется:
 ;	chan->refcount++;             /* prevent finalization during next alloc */
 ;	add_to_custom_table (&caml_custom_table, result, mem, max);
@@ -1385,7 +1393,6 @@ C_primitive_stub
 	lea	rax, [alloc_small_ptr_backup + sizeof Val_header]
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof .co]
 	ret
-end C_primitive
 
 
 ; RDI - int fd
@@ -1405,15 +1412,32 @@ C_primitive_stub
 ;	return caml_alloc_channel(caml_open_descriptor_out(Int_val(fd)));
 	Int_val	edi
 	call	caml_open_descriptor_out
-	jmp	caml_ml_open_descriptor_in.alloc_channel
+	jmp	caml_alloc_channel
 end C_primitive
 
 
 
 C_primitive caml_ml_out_channels_list
 C_primitive_stub
-
-	mov	eax, Val_emptylist
+	mov	edx, Val_emptylist
+	virtual at rdi
+	.channel	channel
+	end virtual
+	mov	.channel, [caml_all_opened_channels]
+.ch:	test	.channel, .channel
+	jz	.exit
+	cmp	[.channel.max], 0
+	jnz	.next
+	mov	rax, .channel
+	call	caml_alloc_channel
+	mov	Val_header[alloc_small_ptr_backup], (1+2) wosize or Pair_tag or Caml_black
+	mov	[alloc_small_ptr_backup + 2 * sizeof value], rdx ; хвост
+	lea	rdx, [alloc_small_ptr_backup + 1 * sizeof value]
+	mov	[rdx], rax ; канал
+	lea	alloc_small_ptr_backup, [3 * sizeof value + alloc_small_ptr_backup]
+.next:	mov	.channel, [.channel.next]
+	jmp	.ch
+.exit:	mov	rax, rdx
 	retn
 end C_primitive
 

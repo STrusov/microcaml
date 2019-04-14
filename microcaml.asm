@@ -597,6 +597,9 @@ oo_last_id	value	Val_int_0
 ; value caml_global_data = 0;
 caml_global_data	dq 0
 
+; Связный список каналов для их сброса при завершении приложения.
+caml_all_opened_channels	dq 0
+
 ; 
 ; Куча
 ;segment readable writeable
