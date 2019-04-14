@@ -1219,7 +1219,6 @@ end Instruct
 
 ;end Instruct
 
-vm_end_lbl:
 
 CLOSURE_impl:
 	mov	ecx, [opcode.1]	; Количество аргументов замыкания.
@@ -1290,6 +1289,9 @@ CLOSUREREC_impl:
 	jc	.cpi
 	Instruct_next	
 display_num_ln "CLOSUREREC_impl: ", $-CLOSUREREC_impl
+
+
+vm_end_lbl:
 
 
 display_num "Реализовано инструкций виртуальной машины: ", ..INSTRUCT_IMPLEMENTED
