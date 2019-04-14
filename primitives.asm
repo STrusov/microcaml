@@ -1418,7 +1418,6 @@ end C_primitive
 
 
 C_primitive caml_ml_out_channels_list
-C_primitive_stub
 	mov	edx, Val_emptylist
 	virtual at rdi
 	.channel	channel

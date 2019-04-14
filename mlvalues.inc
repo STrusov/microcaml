@@ -74,6 +74,7 @@ Caml_gray	:= 1 shl 8
 Caml_blue	:= 2 shl 8
 Caml_black	:= 3 shl 8
 
+Pair_tag	:=	0
 
 Closure_tag	:=	247
 Object_tag	:=	248
