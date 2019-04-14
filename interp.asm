@@ -412,7 +412,15 @@ end Instruct
 
 
 Instruct	APPTERM2
-
+	pop	rcx rsi
+	mov	eax, [opcode.1]
+	lea	vm_sp, [vm_sp + (rax - 2) * sizeof value]
+	push	rsi rcx
+	mov	vm_pc, [accu]
+	mov	env, accu
+	inc	extra_args
+	Instruct_next
+Instruct_size
 end Instruct
 
 
