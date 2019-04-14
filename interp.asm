@@ -830,6 +830,8 @@ end Instruct
 
 
 Instruct	POPTRAP
+Instruct_stub
+;	Должна быть проверка caml_something_to_do
 	mov	caml_trapsp, [vm_sp.1]
 	lea	rsp, [vm_sp.4]
 	Instruct_next
