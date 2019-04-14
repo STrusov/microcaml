@@ -27,6 +27,8 @@ accub	equ dl
 env		equ r13
 extra_args	equ r12
 
+caml_trapsp	equ rbp
+
 virtual at rsp
 label	vm_sp:	qword
 	.0:	dq ?
@@ -516,7 +518,10 @@ end Instruct
 
 
 Instruct	PUSHOFFSETCLOSURE0
-
+	push	accu
+	mov	accu, env
+	Instruct_next
+Instruct_size
 end Instruct
 
 
@@ -810,12 +815,24 @@ end Instruct
 
 
 Instruct	PUSHTRAP
-
+	movsxd	rax, [opcode.1]
+	add	rax, vm_pc
+	next_opcode
+	push	extra_args
+	push	env
+	push	caml_trapsp
+	push	rax
+	mov	caml_trapsp, rsp
+	Instruct_next
+Instruct_size
 end Instruct
 
 
 Instruct	POPTRAP
-
+	mov	caml_trapsp, [vm_sp.1]
+	lea	rsp, [vm_sp.4]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
