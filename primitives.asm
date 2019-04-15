@@ -18,7 +18,7 @@ macro caml_invalid_argument msg
 	lea	rdi, [.m]
 	puts	rdi
 	mov	edi, EINVAL
-	jmp	caml_sys_exit.int
+	jmp	sys_exit
 .m	db	msg, 10, 0
 end macro
 
@@ -2249,7 +2249,8 @@ end C_primitive
 ; Произвольный код может быть возвращён вызовом sys_exit библиотеки Pervasives.
 C_primitive caml_sys_exit
 	Int_val	edi	; 1й
-.int:	sys.exit
+sys_exit:
+	sys.exit
 	ud2
 end C_primitive
 

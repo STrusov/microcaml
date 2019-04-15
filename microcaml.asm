@@ -164,7 +164,7 @@ main:
 
 	puts	error_bytecode_open
 	mov	edi, ebx
-	jmp	caml_sys_exit.int
+	jmp	sys_exit
 
 .bytecode_opened:
 ;	В отличите от ocamlrun используем отображение файла в ОЗУ.
@@ -192,7 +192,7 @@ main:
 
 	puts	error_bytecode_map
 	mov	edi, ebx
-	jmp	caml_sys_exit.int	
+	jmp	sys_exit
 
 .bytecode_mapped:
 ; 	Образ завершается сигнатурой "Caml1999X011"
@@ -210,7 +210,7 @@ main:
 	puts	error_bytecode_invalid
 .invalid_bytecode_msg:
 	mov	edi, ENOEXEC
-	jmp	caml_sys_exit.int
+	jmp	sys_exit
 .dlls_not_supported_yet:
 	puts	error_bytecode_dlls
 	jmp	.invalid_bytecode_msg
@@ -396,7 +396,7 @@ CODE_INT8		:= 0x0
 	call	stdout_hex_byte
 	puts	error_unsupported_data
 	mov	edi, EINVAL
-	jmp	caml_sys_exit.int
+	jmp	sys_exit
 
 .small_int:
 	and	eax, 0x3F
@@ -523,12 +523,12 @@ exit_with_banner:
 
 ; Завершение
 	xor	edi, edi
-	jmp	caml_sys_exit.int
+	jmp	sys_exit
 
 invalid_datasection_sig:
 	puts	error_datasection_sig
 	mov	edi, EINVAL
-	jmp	caml_sys_exit.int
+	jmp	sys_exit
 
 include 'primitives.asm'
 
