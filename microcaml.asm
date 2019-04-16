@@ -619,4 +619,4 @@ ch_stdin	channel
 ch_stdout	channel
 ch_srderr	channel
 
-heap_small	rb 4096*8
+heap_small	rb 4096
