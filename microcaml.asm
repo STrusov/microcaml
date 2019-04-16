@@ -167,7 +167,7 @@ main:
 	jmp	sys_exit
 
 .bytecode_opened:
-;	В отличите от ocamlrun используем отображение файла в ОЗУ.
+;	В отличие от ocamlrun используем отображение файла в ОЗУ.
 	virtual at rsp
 	.st	stat
 	end virtual
