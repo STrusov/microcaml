@@ -76,6 +76,13 @@ define_syscall	mprotect, 10,	3
 ; int munmap(void *addr, size_t length);
 define_syscall	munmap,	11,	2
 
+; int rt_sigaction(int signum, const kernel_sigaction *, kernel_sigaction *, _NSIG / 8)
+define_syscall	rt_sigaction,	13,	4
+
+define_syscall rt_sigprocmask,	14,	4
+
+define_syscall rt_sigreturn,	15,	0
+
 
 ; void exit(int status);
 define_syscall 	exit,	60,	1
