@@ -65,6 +65,7 @@ proc sigsegv_handler
 	.ctx	ucontext
 	end virtual
 	cmp	[.sinf.si_code], SEGV_MAPERR
+	mov	eax, EFAULT
 	jnz	.err
 
 .add_page:
@@ -75,9 +76,11 @@ proc sigsegv_handler
 	mov	r8, -1
 	zero	r9
 	sys.mmap
+	j_err	.err
 	ret
 
-.err:	puts	error_sigsegv_handler
+.err:	push	rax
+	puts	error_sigsegv_handler
 	pop	rdi
 	jmp	sys_exit
 
