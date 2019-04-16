@@ -96,6 +96,9 @@ section '.text' executable align 32
 ; 	Интерататор размещаем в начале страницы для выравнивания
 include 'interp.asm'
 
+;	Куча и сборщик мусора
+include 'heap.asm'
+
 ; Вывод строки в stdout
 ; RSI - адрес строки
 proc stdout_string
@@ -584,6 +587,8 @@ error_bytecode_invalid	db ' Невалидный формат', 10, 0
 error_bytecode_dlls	db 'Примитивы во внешних библиотеках пока не поддерживаются', 10, 0
 error_datasection_sig	db 'Недействительная секция данных', 10, 0
 error_unsupported_data	db ' Неподдерживаемый блок в секции DATA', 10, 0
+error_sigsegv_nohandler	db 'Не установлен обработчик '
+error_sigsegv_handler	db 'SIGSEGV', 10, 0
 
 msg db 'uCaml x64',0xA, 0
 
