@@ -141,6 +141,12 @@ end macro
 
 _start:
 main:
+.stack_size	:= 8 * 18
+assert (sizeof .ksa <= .stack_size)
+assert (sizeof .st <= .stack_size)
+	sub	rsp, .stack_size
+
+	gc_init
 
 ;	Арифметический сопроцессор настроен как требует IEEE
 ;	везде, кроме версий FreeBSD до 4.0R
@@ -174,7 +180,6 @@ main:
 	virtual at rsp
 	.st	stat
 	end virtual
-	sub	rsp, sizeof .st
 	and	[.st.st_size], 0
 	mov	rsi, rsp	; 2й	struct stat *statbuf
 	mov	edi, ebx	; 1й	int fd
