@@ -146,7 +146,7 @@ assert (sizeof .ksa <= .stack_size)
 assert (sizeof .st <= .stack_size)
 	sub	rsp, .stack_size
 
-	gc_init
+	heap_sigsegv_handler_init
 
 ;	Арифметический сопроцессор настроен как требует IEEE
 ;	везде, кроме версий FreeBSD до 4.0R
@@ -305,8 +305,7 @@ assert (sizeof .st <= .stack_size)
 ;	копируется из caml_builtin_cprim в caml_build_primitive_table_builtin().
 ;	Здесь создаём таблицу на этапе ассемблирования, см. caml_builtin_cprim
 
-	alloc_small_init
-;	jmp .read_items_finished
+	heap_small_init
 
 ; Заголовок блока данных, расположенный перед ними.
 ;struct marshal_header

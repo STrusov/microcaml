@@ -16,7 +16,7 @@ alloc_small_ptr		equ rdi	; С-функции портят регистр
 alloc_small_ptr_backup	equ r14	; копия для сохранения при вызовах
 
 ; Инициализация кучи. RDI копируется в R14 и обратно в обработчиках C_CALL.
-macro alloc_small_init
+macro heap_small_init
 ;	В качестве кучи используем массив байт в сегменте неинициализированных данных
 	lea	alloc_small_ptr, [heap_small]
 end macro
@@ -26,12 +26,12 @@ end macro
 ; Там же обеспечить сборку мусора.
 ;
 ; Макрос устанавливает обработчик.
-macro	gc_init
+macro	heap_sigsegv_handler_init
 	virtual at rsp
 	.ksa	kernel_sigaction
 	end virtual
 	mov	rdi, rsp
-	mov	rax, sigsegv_handler
+	mov	rax, heap_sigsegv_handler
 	stos	qword[rdi]
 	mov	eax, SA_SIGINFO or SA_RESTORER
 	stos	qword[rdi]
@@ -57,7 +57,7 @@ end macro
 ; RDI - № сигнала (д.б. SIGSEGV)
 ; RSI - адрес siginfo
 ; RDX - контекст ucontext
-proc sigsegv_handler
+proc heap_sigsegv_handler
 	virtual at rsi
 	.sinf	siginfo_sigfault
 	end virtual
