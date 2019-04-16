@@ -1,5 +1,8 @@
 include 'linux/signal.inc'
 
+; Размер, на который увеличивается куча.
+HEAP_INCREMENT := 1000h	; 4096
+
 macro	gc_init
 	virtual at rsp
 	.ksa	kernel_sigaction
@@ -28,8 +31,30 @@ rep	stos	qword[rdi]
 end macro
 
 
+; RDI - № сигнала (д.б. SIGSEGV)
+; RSI - адрес siginfo
+; RDX - контекст ucontext
 proc sigsegv_handler
-	puts	error_sigsegv_handler
+	virtual at rsi
+	.sinf	siginfo_sigfault
+	end virtual
+	virtual at rdx
+	.ctx	ucontext
+	end virtual
+	cmp	[.sinf.si_code], SEGV_MAPERR
+	jnz	.err
+
+.add_page:
+	mov	rdi, [.sinf.si_addr]
+	mov	esi, HEAP_INCREMENT
+	mov	edx, PROT_READ or PROT_WRITE
+	mov	r10d, MAP_PRIVATE or MAP_ANONYMOUS
+	mov	r8, -1
+	zero	r9
+	sys.mmap
+	ret
+
+.err:	puts	error_sigsegv_handler
 	pop	rdi
 	jmp	sys_exit
 

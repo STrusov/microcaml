@@ -63,3 +63,70 @@ struct kernel_sigaction
 	.sa_restorer	dq ?
 	.sa_mask	rq _NSIG / 8
 end struct
+
+
+; Коды (.si_code) SIGSEGV
+SEGV_MAPERR	:= 1	; Память по адресу не отображена
+SEGV_ACCERR	:= 2	; Нет прав для доутупа к памяти
+SEGV_BNDERR	:= 3
+SEGV_PKUERR	:= 4
+NSIGSEGV	:= 4
+
+; siginfo для SIGILL, SIGFPE, SIGSEGV, SIGBUS
+struct siginfo_sigfault
+	.si_signo	dd ?	; № сигнала
+	.si_errno	dd ?	;
+	.si_code	dd ?, ?	; Код сигнала (см. выше)
+	.si_addr	dq ?	; Исключение (fault) при обращении к этому адресу.
+;	.si_addr_lsb	dw ?
+;	.si_lower	dq ?
+;	.si_upper	dq ?
+end struct
+
+
+struct sigaltstack
+	.ss_sp		dq ?
+	.ss_flags	dd ?, ?	;
+	.ss_size	dq ?	;
+end struct	; stack_t
+
+
+struct sigcontext
+	.r8	dq ?
+	.r9	dq ?
+	.r10	dq ?
+	.r11	dq ?
+	.r12	dq ?
+	.r13	dq ?
+	.r14	dq ?
+	.r15	dq ?
+	.rdi	dq ?
+	.rsi	dq ?
+	.rbp	dq ?
+	.rbx	dq ?
+	.rdx	dq ?
+	.rax	dq ?
+	.rcx	dq ?
+	.rsp	dq ?
+	.rip	dq ?
+	.eflags	dq ?
+	.cs	dw ?
+	.gs	dw ?
+	.fs	dw ?
+	.ss	dw ?
+	.err	dq ?
+	.trapno	dq ?
+	.oldmask	dq ?
+	.cr2		dq ?
+	.fpstate	dq ?	; Адрес struct _fpstate или 0
+	.reserved1	rb 8
+end struct
+
+
+struct ucontext
+	.uc_flags	dq ?
+	.uc_link	dq ?	; struct ucontext  *
+	.uc_stack	sigaltstack	; Альтернативный стек, если определён.
+	.uc_mcontext	sigcontext
+	.uc_sigmask	dq ?
+end struct
