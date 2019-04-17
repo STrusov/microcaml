@@ -352,11 +352,13 @@ proc caml_alloc_string
 	shl	rdi, 10 - sizeof_value_log2
 	or	rdi, String_tag or Caml_black
 	mov	Val_header[alloc_small_ptr_backup], rdi
-	lea	rax, [alloc_small_ptr_backup + sizeof value]
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (rcx + 1) * sizeof value]
 ;	Завершающий байт = размер блока в байтах - 1 - длина строки
 	bswap	rdx
-	mov	[alloc_small_ptr_backup - sizeof value], rdx
+	mov	[alloc_small_ptr_backup + rcx * sizeof value], rdx
+;	Предыдыщая команда может изменить содержимое alloc_small_ptr_backup,
+;	потому порядок выполнения важен.
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (rcx + 1) * sizeof value]
 	ret
 end proc
 
