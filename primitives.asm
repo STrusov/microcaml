@@ -1269,7 +1269,7 @@ end C_primitive
 ; RDI - виртуальный канал
 C_primitive caml_ml_flush
 ;	В оригинале обеспечен эксклюзивный доступ
-	virtual at rdi - sizeof Val_header
+	virtual at rdi - sizeof value
 	.co	channel_operations_object
 	end virtual
 	mov	rdi, [.co.channel]
@@ -1393,7 +1393,7 @@ caml_alloc_channel:
 	mov	[.co.tag], 2 wosize or Caml_black or Custom_tag
 	mov	[.co.operations], channel_operations
 	mov	[.co.channel], rax
-	lea	rax, [alloc_small_ptr_backup + sizeof Val_header]
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof .co]
 	ret
 
@@ -1505,7 +1505,7 @@ caml_ml_output:
 ; RCX - длина
 C_primitive caml_ml_output_bytes
 C_primitive_stub
-	virtual at rdi - sizeof Val_header
+	virtual at rdi - sizeof value
 	.co	channel_operations_object
 	end virtual
 	mov	rdi, [.co.channel]
@@ -1590,7 +1590,7 @@ end proc
 ; RDI - виртуальный канал
 ; RSI - символ
 C_primitive caml_ml_output_char
-	virtual at rdi - sizeof Val_header
+	virtual at rdi - sizeof value
 	.co	channel_operations_object
 	end virtual
 	mov	rdi, [.co.channel]
