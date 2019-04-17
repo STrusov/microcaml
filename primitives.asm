@@ -1387,7 +1387,8 @@ caml_alloc_channel:
 	virtual at alloc_small_ptr_backup
 	.co	channel_operations_object
 	end virtual
-	mov	[.co.tag], 3 wosize or Caml_black or Custom_tag
+;	Длина без учёта заголовка (tag)
+	mov	[.co.tag], 2 wosize or Caml_black or Custom_tag
 	mov	[.co.operations], channel_operations
 	mov	[.co.channel], rax
 	lea	rax, [alloc_small_ptr_backup + sizeof Val_header]
