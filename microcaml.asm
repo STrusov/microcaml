@@ -2,7 +2,7 @@ include 'linux-x64.inc'
 
 include 'mlvalues.inc'
 
-;PAGE_SIZE	:= 1000h	; 4096
+PAGE_SIZE	:= 1000h	; 4096
 
 ;format	ELF64 executable ELFOSABI_LINUX
 format ELF64
@@ -519,6 +519,8 @@ rep	stos	byte[intern_dest]
 restore	intern_dest
 restore dest
 .read_items_finished:
+	heap_init
+
 ;	Подготавливаем виртуальную машину и переходим к первой инструкции
 	mov	vm_pc, [.sect_code]
 	
@@ -609,13 +611,15 @@ caml_global_data	dq 0
 ; Связный список каналов для их сброса при завершении приложения.
 caml_all_opened_channels	dq 0
 
-; 
-; Куча
+; Описатель кучи.
+heap_descriptor
+
 ;segment readable writeable
-section '.bss' writeable
+section '.bss' writeable ; align 4096
 
 ch_stdin	channel
 ch_stdout	channel
 ch_srderr	channel
 
-heap_small	rb HEAP_INIT_SIZE
+; Куча начинается здесь
+heap_small__ends_bss
