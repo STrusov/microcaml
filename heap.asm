@@ -81,7 +81,6 @@ end macro
 macro	heap_descriptor
 heap_descriptor:
 	.gc_start	dq ?	; Если адрес не 0, то с него начинается сборка мусора.
-	.gc_end		dq ?
 	.uncommited	dq ?
 	.sp_top		dq ?
 end macro
@@ -106,17 +105,18 @@ proc heap_sigsegv_handler
 	cmp	[.sinf.si_code], SEGV_MAPERR
 	mov	eax, EFAULT
 	jnz	.err
-uncommited equ r9
+uncommited equ r10
+rsi14_ptr equ rcx
 	mov	uncommited, [.sinf.si_addr]
 	and	uncommited, not (PAGE_SIZE-1)
 ;	SIGSEGV валиден при обращении через один из регистров: r14 или rdi.
-	lea	r10, [.ctx.uc_mcontext.rsi]
-	mov	rax, [r10]
+	lea	rsi14_ptr, [.ctx.uc_mcontext.rsi]
+	mov	rax, [rsi14_ptr]
 	and	rax, not (PAGE_SIZE-1)
 	cmp	rax, uncommited
 	jz	.chkun
-	lea	r10, [.ctx.uc_mcontext.r14]
-;	mov	rax, [r10]
+	lea	rsi14_ptr, [.ctx.uc_mcontext.r14]
+;	mov	rax, [rsi14_ptr]
 ;	and	rax, not (PAGE_SIZE-1)
 ;	cmp	rax, uncommited
 ;	jnz	.err
@@ -125,68 +125,28 @@ uncommited equ r9
 .chkun:	cmp	uncommited, [heap_descriptor.uncommited]
 	jnz	.err
 ;	Если сборщик мусора отключен, просто добавляем страницу.
-	mov	alloc_small_ptr, [heap_descriptor.gc_start]
-	test	alloc_small_ptr, alloc_small_ptr
+	cmp	[heap_descriptor.gc_start], 0
 	jz	.add_page
-;	Ищем в стеке потока ссылки (roots) на блоки в куче.
-;	Это значения с младшим битом равным 0 и
-;	попадающие в диапазон адресов кучи.
-iter	equ r8
-last	equ [.ctx.uc_mcontext.rsp]
-step	equ -sizeof value
-	mov	iter, [heap_descriptor.sp_top]
-;	SIGSEGV может быть сгенерирован, когда объект на куче создан частично.
-;	Поэтому после сборки мусора слудет найти заголовок последнего объекта.
-;	Если часть объекта выходит за пределы кучи, необходимо
-;	скопировать уже размещённую часть.
-;	Поиск осуществляется от адреса за источником последнего скопированного
-;	объекта. Для случая, когда копирований не было (нет "живых" объектов)
-;	установим адрес источника равным адресу начала динамической области кучи.
-	mov	rsi, alloc_small_ptr
-.search_stack:
-	add	iter, step
-	cmp	iter, last
-	jz	.stack_searched
-	mov	rax, [iter]
-	test	rax, 1
-	jnz	.search_stack
-	cmp	rax, alloc_small_ptr
-	jc	.search_stack
-	cmp	rax, uncommited
-	jae	.search_stack
-;	Найдена ссылка на объект в куче.
-;	Копируем его в начало динамической области.
-;
-;	Возможны случаи, когда копирование не требуется.
-;	Следует учесть их в дальнейшем.
-;
-	mov	rsi, rax
-	mov	rax, [rsi - sizeof value]
-	stos	Val_header[alloc_small_ptr]
-;	Корректируем ссылку на объект.
-	mov	[iter], alloc_small_ptr
-	mov	ecx, eax
-	from_wosize ecx
-rep	movs	qword[alloc_small_ptr], [rsi]
-	jmp	.search_stack
-.stack_searched:
-;	Ищем последний объект, что бы определить, не аллоцируется ли он
-;	в момент возникновения SIGSEGV.
-.find_last_value:
-	mov	rax, rsi
-	mov	rsi, [rax]
-	from_wosize esi
-	lea	rsi, [rax + (rsi + 1) * sizeof value]
-	cmp	rsi, uncommited
-	jc	.find_last_value
-;	Если равны, значит последний объект размещён целиком.
-	jz	.copied
-;	Копируем частично размешённый объект в хвост динамической части кучи.
-	mov	rsi, rax
+;	Сдвигаем живые объекты к началу кучи.
+	push	rsi14_ptr
+	mov	rbp, rsp
+	mov	rsp, [.ctx.uc_mcontext.rsp]
+	mov	alloc_small_ptr, uncommited
+	call	heap_mark_compact_gc
+	mov	rsp, rbp
+;	После сборки мусора в ESI адрес за последним проверенным объектом.
+;	Если этот адрес равен началу неотображённой страницы, значит упомянутый
+;	объект на момент генерации SIGSEGV размещён целиком.
+	cmp	r10, rsi
+	jz	.whole
+;	Иначе объект размещён частично, необходимо скопировать что есть.
+;	В RAX возвращён размер объекта (без заголовка), находим его начальный адрес.
+	not	rax	; neg - 1
+	lea	rsi, [rsi + rax * sizeof value]
 .cpo:	movs	qword[alloc_small_ptr], [rsi]
 	cmp	rsi, uncommited
 	jc	.cpo
-.copied:
+.whole:
 ;	Здесь alloc_small_ptr содержит адрес за "живыми" объектами кучи.
 ;	Если он равен uncommited, значит освободить место в куче не удалось
 ;	и следует выделить новые страницы.
@@ -197,11 +157,11 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 ;	Учтём, что обращение к памяти может быть по смещению
 ;	относительно значения регистра.
 	sub	alloc_small_ptr, uncommited
-	add	[r10], alloc_small_ptr
+	pop	rsi14_ptr
+	add	[rsi14_ptr], alloc_small_ptr
 	ret
-restore	step
-restore	last
-restore	iter
+restore rsi14_ptr
+
 ;	Добавляем страницу(ы) памяти.
 .add_page:
 	mov	rdi, uncommited	; округлённый до границы страницы [.sinf.si_addr]
@@ -242,9 +202,22 @@ end proc
 ; в односвязный список (располагаемый на местах дополнилельных ссылок).
 ; См. для примера: Mark-Compact GC, sliding algorithm.
 ; https://www.cs.tau.ac.il/~maon/teaching/2014-2015/seminar/seminar1415a-lec2-mark-sweep-mark-compact.pdf
+;
+; При вызове подпрограммы:
+; RDI - свободный адрес в куче (т.е. за последним блоком);
+; RSP - база стека для поиска корневых ссылок;
+; в ячейке [RSP] находится адрес возврата (пропускается).
+;
+; При выходе из подпрограммы:
+; RDI - изменяется в сторону младших адресов, если произошло уплотнение кучи;
+; RSI - адрес, следующий за последним проверенным блоком;
+; R10 - приравнивается ESI в начальной точке входа, более не изменяется;
+; RAX - размер послдеднего проверенного блока (см. .compact:);
+; RDX, RCX, R8, R9, R11 - не определены.
 proc heap_mark_compact_gc
 s_base	equ r8
 s_size	equ r9
+gc_end	equ r10
 ;	Индекс элемента в стеке - требуется для коррекции ссылок при уплотнении.
 s_index	equ rcx
 	mov	s_base, rsp
@@ -253,7 +226,7 @@ s_index	equ rcx
 	shr	s_size, 3	; / 8
 ;	Далее индекс увеличим, пропустив адрес возврата в стеке - необходим ненулевой маркер.
 	zero	s_index
-	mov	[heap_descriptor.gc_end], alloc_small_ptr
+	mov     gc_end, alloc_small_ptr
 	mov	alloc_small_ptr, [heap_descriptor.gc_start]
 .search_stack:
 	inc	s_index
@@ -352,7 +325,7 @@ restore s_index
 ;	после чего корректируем ссылку на него.
 	mov	rsi, alloc_small_ptr
 .compact:
-	cmp	rsi, [heap_descriptor.gc_end]
+	cmp	rsi, gc_end
 	jnc	.compact_end
 	lods	Val_header[rsi]
 	mov	rdx, .mark_mask
@@ -396,6 +369,7 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 .compact_end:
 restore s_base
 restore s_size
+restore gc_end
 	ret
 
 .already_marked:
