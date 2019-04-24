@@ -566,16 +566,35 @@ Instruct_size
 end Instruct
 
 
+; Замечания при отладке.
+; Для простейшей программы, выводящей в цикле конкатенацию 2-х строк:
+; 1. При первом вызове инструкции не наблюдается лишних блоков в куче.
+; 2. При втором уплотняет кучу на 3 ячейки (24 байт).
+; 3. Вызов происходит после вывода части (до сброса буфера канала) строк.
+; Блок содержит 2 ссылки на статичную часть кучи (на строки "Привет" и "Мир").
+; Остальные объекты в куче (строки) очищаются.
+; 4. Параметром передаётся Atom(0)
+;
+; Семантика глобальных объектов подразумевает, что они живут до завершения
+; приложения. В таком случае, динамичную часть кучи следует распологать за ними.
 Instruct	SETGLOBAL
 Instruct_stub
+;	caml_modify(&Field(caml_global_data, *pc), accu);
+if HEAP_GC
+	push	accu
+	call	heap_mark_compact_gc
+	pop	accu
+end if
 	mov	eax, [opcode.1]
 	next_opcode
-;	caml_modify(&Field(caml_global_data, *pc), accu);
 	mov	rcx, [caml_global_data]
 	mov	[rcx + rax * sizeof value], accu
-	mov	accu, Val_unit
+	mov	accud, Val_unit
+if HEAP_GC
+	jmp	..heap_set_gc_start
+else
 	Instruct_next
-
+end if
 Instruct_size
 end Instruct
 
@@ -584,6 +603,12 @@ Instruct	ATOM0
 ;	адрес за заголовком
 	lea	accu, [caml_atom_table + sizeof value]
 	Instruct_next
+
+if HEAP_GC
+..heap_set_gc_start:
+	heap_set_gc_start
+	Instruct_next
+end if
 Instruct_size
 end Instruct
 
