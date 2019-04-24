@@ -549,7 +549,7 @@ section '.rodata'
 ;CAMLexport header_t caml_atom_table[256];
 label caml_atom_table: qword
 repeat 256
-	dq 0 wosize + Caml_white + %
+	dq 0 wosize + Caml_white + % - 1
 end repeat
 
 ;struct custom_operations {
