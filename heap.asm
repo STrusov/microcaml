@@ -282,6 +282,10 @@ b_index	equ rsi
 	mov	b_index, [b_base - sizeof value]
 	jnz	.already_marked			;; ?
 	or	[b_base - sizeof value], rdx
+.check_block:
+;	Проверяем тег, подлежит ли блок сканированию.
+	cmp	sil, No_scan_tag
+	jae	.block_searched
 	from_wosize b_index
 	jz	.empty_block			;; ?
 .search_block:
@@ -296,6 +300,7 @@ b_index	equ rsi
 	cmp	rdx, [heap_descriptor.uncommited]
 	jae	.search_block
 ;	Найдена ссылка на объект в куче. Промаркируем объект индексом ссылки.
+;	Выполним рекурсивный поиск ссылок в объекте, если он найден впервые.
 ;	Индекс ссылки, находящейся в теле блока в куче, по значению д.б. больше
 ;	чем размер стека - т.о. они различаются на стадии уплотнения.
 ;	Вычисляется как расстояние (в sizeof value) от адресуемого объекта
@@ -314,9 +319,8 @@ b_index	equ rsi
 	mov	rdx, [b_base - sizeof value]
 	jnz	.already_marked_block
 	or	[b_base - sizeof value], rsi
-	mov	b_index, rdx	; rsi
-	from_wosize b_index
-	jmp	.search_block
+	mov	rsi, rdx	; b_index
+	jmp	.check_block
 .already_marked_block:
 ;	Блок уже содержит индекс ссылки - его содержимое обработано.
 ;	Организуем односвязный список ссылок. Имеющийся заголовок перенесём
@@ -337,6 +341,7 @@ restore b_index
 ;	Если стек пуст, рекурсивная обработка текущего блока из кучи завершена.
 	cmp	rsp, s_base
 	jz	.search_stack
+;	Иначе продолжаем сканировать предыдущий уровень.
 	pop	rsi rax		; b_index b_base
 	jmp	.search_block
 restore s_index
