@@ -69,6 +69,8 @@ end macro
 
 Max_wosize	:= 1 shl 32 - 1	; В оригинале 54. Умещаем в младшие 32 бита регистра.
 
+Wosize_mask	:= 1 shl (bsr (Max_wosize+1) + 10) - 1
+
 Caml_white	:= 0 shl 8
 Caml_gray	:= 1 shl 8
 Caml_blue	:= 2 shl 8

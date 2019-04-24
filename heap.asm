@@ -8,6 +8,9 @@ HEAP_INIT_SIZE := 1000h	; 4096
 ; Размер, на который увеличивается куча.
 HEAP_INCREMENT := 1000h	; 4096
 
+; Об оригинальной куче и сборщике мусора:
+; se.math.spbu.ru/SE/YearlyProjects/2014/444/444-Shashkova-report.pdf
+
 ; "Куча", где размещаются и хранятся объекты (OCaml value)
 ; представляет собой статически выделенный в ELF-образе массив памяти.
 ; Размещение (аллокация) объектов происходит непосредственно один за другим,
@@ -25,10 +28,15 @@ macro heap_small_init
 	lea	alloc_small_ptr, [heap_small]
 end macro
 
+; Макрос в том числе делает объекты в куче статическими, запрещая их удаление.
+macro heap_set_gc_start
+	mov	[heap_descriptor.gc_start], alloc_small_ptr
+end macro
+
 ; Иниациализация необходимых для работы кучи и сборщика мусора параметров.
 macro heap_init
 if HEAP_GC
-	mov	[heap_descriptor.gc_start], alloc_small_ptr
+	heap_set_gc_start
 	mov	[heap_descriptor.sp_top], rsp
 display 'Сборщик мусора активен.', 10
 end if
@@ -73,6 +81,7 @@ end macro
 macro	heap_descriptor
 heap_descriptor:
 	.gc_start	dq ?	; Если адрес не 0, то с него начинается сборка мусора.
+	.gc_end		dq ?
 	.uncommited	dq ?
 	.sp_top		dq ?
 end macro
@@ -119,7 +128,7 @@ uncommited equ r9
 	mov	alloc_small_ptr, [heap_descriptor.gc_start]
 	test	alloc_small_ptr, alloc_small_ptr
 	jz	.add_page
-;	Ищем в стеке потока ссылки на блоки в куче.
+;	Ищем в стеке потока ссылки (roots) на блоки в куче.
 ;	Это значения с младшим битом равным 0 и
 ;	попадающие в диапазон адресов кучи.
 iter	equ r8
@@ -219,4 +228,174 @@ restore	uncommited
 align_code 16
 __restore_rt:
 	sys.rt_sigreturn
+end proc
+
+
+; Сборщик мусора:
+; 1) ищет ссылки (roots) на живые объекты;
+; 2) маркирует блоки, хранящие живые объекты;
+; 3) выполняет рекурсивный поиск ссылок в блоке;
+; 4) сдвигает промаркированные блоки к младшим адресами кучи, корректируя ссылки.
+; Маркер обеспечивает поиск ссылки за O(1) и представляет из себя "индекс"
+; элемента в одном из "массивов": куче (относительно текущего блока) или стеке.
+; В случае наличия нескольких ссылок на один блок, они организуются
+; в односвязный список (располагаемый на местах дополнилельных ссылок).
+; См. для примера: Mark-Compact GC, sliding algorithm.
+; https://www.cs.tau.ac.il/~maon/teaching/2014-2015/seminar/seminar1415a-lec2-mark-sweep-mark-compact.pdf
+proc heap_mark_compact_gc
+s_base	equ r8
+s_size	equ r9
+;	Индекс элемента в стеке - требуется для коррекции ссылок при уплотнении.
+s_index	equ rcx
+	mov	s_base, rsp
+	mov	s_size, [heap_descriptor.sp_top]
+	sub	s_size, s_base
+	shr	s_size, 3	; / 8
+;	Далее индекс увеличим, пропустив адрес возврата в стеке - необходим ненулевой маркер.
+	zero	s_index
+	mov	[heap_descriptor.gc_end], alloc_small_ptr
+	mov	alloc_small_ptr, [heap_descriptor.gc_start]
+.search_stack:
+	inc	s_index
+	cmp	s_index, s_size
+	jz	.stack_searched
+;	Ссылки (roots) - это значения с младшим битом равным 0 и
+;	попадающие в диапазон адресов кучи.
+	mov	rax, [s_base + s_index * sizeof value]
+	test	rax, 1
+	jnz	.search_stack
+	cmp	rax, alloc_small_ptr
+	jc	.search_stack
+	cmp	rax, [heap_descriptor.uncommited]
+	jae	.search_stack
+;	Найдена ссылка на объект в куче. Промаркируем объект индексом ссылки -
+;	для быстрой её модификации при уплотнении кучи.
+	mov	rdx, s_index
+;	Маркер храним в старших битах, оставшихся свободными после wosize.
+.mark_mask :=  (1 shl 64 - 1) and not Wosize_mask
+..Mark_shift	:= bsr (Max_wosize+1) + 10
+	shl	rdx, ..Mark_shift
+	mov	rsi, .mark_mask	; b_index
+b_base	equ rax
+b_index	equ rsi
+	test	rsi, [b_base - sizeof value]	;; ?
+	mov	b_index, [b_base - sizeof value]
+	jnz	.already_marked			;; ?
+	or	[b_base - sizeof value], rdx
+	from_wosize b_index
+	jz	.empty_block			;; ?
+.search_block:
+	dec	b_index
+	js	.block_searched
+;	Проверяем блок на наличие ссылок.
+	mov	rdx, [b_base + b_index * sizeof value]
+	test	rdx, 1
+	jnz	.search_block
+	cmp	rdx, alloc_small_ptr
+	jc	.search_block
+	cmp	rdx, [heap_descriptor.uncommited]
+	jae	.search_block
+;	Найдена ссылка на объект в куче. Промаркируем объект индексом ссылки.
+;	Индекс ссылки, находящейся в теле блока в куче, по значению д.б. больше
+;	чем размер стека - т.о. они различаются на стадии уплотнения.
+;	Вычисляется как расстояние (в sizeof value) от адресуемого объекта
+;	до места храненения ссылки + резмер стека (в sizeof value).
+	push	rax rsi		; b_base b_index
+	lea	rsi, [b_base + b_index * sizeof value]	; далее b_index невалиден
+	mov	r11, rsi
+	sub	rsi, rdx
+;	Сдвиги можно оптимизировать, поскольку адреса кратны 8.
+;	shr	rsi, 3	; / 8
+	lea	rsi, [rsi + s_size * sizeof value]
+	shl	rsi, bsr (Max_wosize+1) + 10 - 3
+	mov	b_base, rdx
+	mov	rdx, .mark_mask
+	test	rdx, [b_base - sizeof value]
+	mov	rdx, [b_base - sizeof value]
+	jnz	.already_marked_block
+	or	[b_base - sizeof value], rsi
+	mov	b_index, rdx	; rsi
+	from_wosize b_index
+	jmp	.search_block
+.already_marked_block:
+;	Блок уже содержит индекс ссылки - его содержимое обработано.
+;	Организуем односвязный список ссылок. Имеющийся заголовок перенесём
+;	по адресу текущей ссылки, а на его место сохраним новый маркер.
+	mov	[r11], rdx
+;	Маркер заменяем новым.
+	shl	rdx, 64 - ..Mark_shift
+	shr	rdx, 64 - ..Mark_shift
+	or	rsi, rdx
+	mov	[b_base - sizeof value], rsi
+;	Выходим из рекурсивной обработки, уже выполненной для найденного блока.
+	pop	rsi rax		; b_index b_base
+	jmp	.search_block
+restore b_base
+restore b_size
+restore b_index
+.block_searched:
+;	Если стек пуст, рекурсивная обработка текущего блока из кучи завершена.
+	cmp	rsp, s_base
+	jz	.search_stack
+	pop	rsi rax		; b_index b_base
+	jmp	.search_block
+restore s_index
+.stack_searched:
+;	Стадия уплотнения кучи.
+;	alloc_small_ptr указывает на начало динамической области.
+;	Проверяем последовательно каждый блок. Живой копируем к началу,
+;	после чего корректируем ссылку на него.
+	mov	rsi, alloc_small_ptr
+.compact:
+	cmp	rsi, [heap_descriptor.gc_end]
+	jnc	.compact_end
+	lods	Val_header[rsi]
+	mov	rdx, .mark_mask
+	test	rdx, rax
+	jnz	.live_block
+	from_wosize rax
+;	and	eax, Max_wosize - лишнее т.к. старшие биты проверены на 0
+	lea	rsi, [rsi + rax * sizeof value]
+	jmp	.compact
+.live_block:
+	mov	rcx, rax
+;	Очищаем маркер и копируем заголовок блока.
+	not	rdx
+	and	rax, rdx
+	stos	Val_header[alloc_small_ptr]
+.correct_link:
+;	Определяем по маркеру адресс ссылки на блок.
+	shr	rcx, ..Mark_shift
+;	Элементы с индексом s_size и выше находятся за пределами стека. Для них
+;	ссылка раположена в куче и находится по смещению от копируемого блока.
+	zero	rdx
+	cmp	rcx, s_size
+	cmovnc	rdx, s_size
+	mov	s_base, rsp
+	cmovnc	s_base, rsi
+	sub	rcx, rdx
+;	Ссылка либо равна хранящейся в источнике, либо вместо неё находится
+;	маркер с индексом следующей ссылки на данный блок.
+	mov	rdx, [s_base + rcx * sizeof value]
+	cmp	rdx, rsi
+	mov	[s_base + rcx * sizeof value], alloc_small_ptr
+;	Обрабатываем список ссылок, копирование блока произойдёт по его заверщении.
+	jnz	.next_link
+	mov	rcx, rax
+	from_wosize rcx
+rep	movs	qword[alloc_small_ptr], [rsi]
+	jmp	.compact
+.next_link:
+	mov	rcx, rdx
+	jmp	.correct_link
+.compact_end:
+restore s_base
+restore s_size
+	ret
+
+.already_marked:
+int3
+.empty_block:
+int3
+nop
 end proc
