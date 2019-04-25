@@ -632,7 +632,6 @@ Instruct	MAKEBLOCK
 	mov	ecx, [opcode.1]		; wosize
 	mov	eax, ecx
 	to_wosize	eax
-	or	eax, Caml_black
 	or	eax, [opcode.2]		; tag
 	push	accu
 	stos	Val_header[alloc_small_ptr]
@@ -649,7 +648,7 @@ end Instruct
 Instruct	MAKEBLOCK1
 	mov	eax, [opcode.1]	; tag
 	next_opcode
-	or	eax, 1 wosize or Caml_black
+	or	eax, 1 wosize
 	stos	Val_header[alloc_small_ptr]
 	mov	rax, accu
 	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
@@ -666,7 +665,7 @@ end Instruct
 Instruct	MAKEBLOCK2
 	mov	eax, [opcode.1]	; tag
 	next_opcode
-	or	eax, 2 wosize or Caml_black
+	or	eax, 2 wosize
 	stos	Val_header[alloc_small_ptr]
 	mov	rax, accu
 	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
@@ -681,7 +680,7 @@ end Instruct
 Instruct	MAKEBLOCK3
 	mov	eax, [opcode.1]	; tag
 	next_opcode
-	or	eax, 3 wosize or Caml_black
+	or	eax, 3 wosize
 	stos	Val_header[alloc_small_ptr]
 	mov	rax, accu
 	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
@@ -1265,7 +1264,7 @@ CLOSURE_impl:
 ;	Alloc_small(accu, 1 + nvars, Closure_tag);
 	lea	eax, [ecx+1]
 	to_wosize	eax 
-	or	eax, Caml_black or Closure_tag
+	or	eax, Closure_tag
 	stos	Val_header[alloc_small_ptr]
 	mov	accu, alloc_small_ptr
 	movsxd	rax, [opcode.2]
@@ -1290,7 +1289,7 @@ CLOSUREREC_impl:
 	lea	eax, [2*eax+ecx-1]
 	mov	esi, eax
 	to_wosize eax
-	or	eax, Caml_black or Closure_tag
+	or	eax, Closure_tag
 	stos	Val_header[alloc_small_ptr]
 	mov	accu, alloc_small_ptr
 	lea	alloc_small_ptr, [alloc_small_ptr + rsi * sizeof value]
@@ -1312,7 +1311,7 @@ CLOSUREREC_impl:
 	jmp	.cpp
 .cpi:	mov	eax, ecx
 	to_wosize eax
-	or	eax, Infix_tag or Caml_white
+	or	eax, Infix_tag
 	mov	[rsi], rax
 	lea	rsi, [rsi+sizeof value]
 .cpp:	push	rsi

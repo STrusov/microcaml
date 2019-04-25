@@ -349,8 +349,8 @@ proc caml_alloc_string
 	shr	ecx, sizeof_value_log2
 ;	shr	rdi, sizeof_value_log2
 ;	to_wosize rdi
-	shl	rdi, 10 - sizeof_value_log2
-	or	rdi, String_tag or Caml_black
+	shl	rdi, wosize_shift - sizeof_value_log2
+	or	rdi, String_tag
 	mov	Val_header[alloc_small_ptr_backup], rdi
 ;	Завершающий байт = размер блока в байтах - 1 - длина строки
 	bswap	rdx
@@ -1390,7 +1390,7 @@ caml_alloc_channel:
 	.co	channel_operations_object
 	end virtual
 ;	Длина без учёта заголовка (tag)
-	mov	[.co.tag], 2 wosize or Caml_black or Custom_tag
+	mov	[.co.tag], 2 wosize or Custom_tag
 	mov	[.co.operations], channel_operations
 	mov	[.co.channel], rax
 	lea	rax, [alloc_small_ptr_backup + sizeof value]
@@ -1432,7 +1432,7 @@ C_primitive caml_ml_out_channels_list
 	jnz	.next
 	mov	rax, .channel
 	call	caml_alloc_channel
-	mov	Val_header[alloc_small_ptr_backup], (1+2) wosize or Pair_tag or Caml_black
+	mov	Val_header[alloc_small_ptr_backup], (1+2) wosize or Pair_tag
 	mov	[alloc_small_ptr_backup + 2 * sizeof value], rdx ; хвост
 	lea	rdx, [alloc_small_ptr_backup + 1 * sizeof value]
 	mov	[rdx], rax ; канал
@@ -1696,7 +1696,7 @@ end C_primitive
 C_primitive caml_ml_string_length
 	mov	rax, [rdi - sizeof value]
 ;	from_wosize	rax
-	shr	rax, 10 - sizeof_value_log2
+	shr	rax, wosize_shift - sizeof_value_log2
 	and	rax, not (sizeof value - 1)
 	dec	rax
 	movzx	rcx, byte[rdi + rax]

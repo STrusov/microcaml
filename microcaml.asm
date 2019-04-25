@@ -343,7 +343,6 @@ Intext_magic_number_small := 0x8495A6BE bswap 4
 ;	и сохраняет сслыку в caml_global_data для доступа по инструкции GETGLOBAL.
 ;	Здесь сохраняются объекты при чтении из DATA.
 intern_dest	equ alloc_small_ptr	; intern_block == intern_dest + sizeof value
-intern_color	:= Caml_black	; может быть и Caml_white
 ; 	intern_alloc()
 ;	Таблица ссылок на сохранённые объекты.
 dest		equ rbx
@@ -434,7 +433,6 @@ CODE_INT8		:= 0x0
 	mov	[.count], rcx
 	mov	rdx, rcx
 	to_wosize rdx
-	or	rdx, intern_color
 	cmp	eax, Object_tag	; al
 	lea	rax, [rax + rdx]	; вместо OR, что бы сохранить флаги
 	stos	Val_header[intern_dest]
@@ -474,8 +472,8 @@ int3
 	sub	edx, ecx
 ;	shr	eax, sizeof_value_log2
 ;	to_wosize eax
-	shl	rax, 10 - sizeof_value_log2
-	or	rax, String_tag or intern_color
+	shl	rax, wosize_shift - sizeof_value_log2
+	or	rax, String_tag
 	stos	Val_header[intern_dest]
 	push	intern_dest
 rep	movs	byte[intern_dest], [rsi]
@@ -505,7 +503,7 @@ rep	stos	byte[intern_dest]
 	jnz	.unsupported_yet
 ;	int64_deserialize()
 	inc	rsi
-	mov	rax, (1 + 1) wosize or Custom_tag or intern_color
+	mov	rax, (1 + 1) wosize or Custom_tag
 	stos	Val_header[intern_dest]
 	lea	rax, [caml_int64_ops]
 	stos	qword[intern_dest]
@@ -549,7 +547,7 @@ section '.rodata'
 ;CAMLexport header_t caml_atom_table[256];
 label caml_atom_table: qword
 repeat 256
-	dq 0 wosize + Caml_white + % - 1
+	dq 0 wosize + 0 + % - 1
 end repeat
 
 ;struct custom_operations {

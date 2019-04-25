@@ -246,7 +246,7 @@ s_index	equ rcx
 	mov	rdx, s_index
 ;	Маркер храним в старших битах, оставшихся свободными после wosize.
 .mark_mask :=  (1 shl 64 - 1) and not Wosize_mask
-..Mark_shift	:= bsr (Max_wosize+1) + 10
+..Mark_shift	:= bsr (Max_wosize+1) + wosize_shift
 	shl	rdx, ..Mark_shift
 	mov	rsi, .mark_mask	; b_index
 b_base	equ rax
@@ -285,7 +285,7 @@ b_index	equ rsi
 ;	Сдвиги можно оптимизировать, поскольку адреса кратны 8.
 ;	shr	rsi, 3	; / 8
 	lea	rsi, [rsi + s_size * sizeof value]
-	shl	rsi, bsr (Max_wosize+1) + 10 - 3
+	shl	rsi, bsr (Max_wosize+1) + wosize_shift - 3
 	mov	b_base, rdx
 	mov	rdx, .mark_mask
 	test	rdx, [b_base - sizeof value]

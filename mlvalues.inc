@@ -49,32 +49,38 @@ macro Ulong_val	reg
 end macro
 
 
-;	Структура заголовка
+;	Структура заголовка блока в оригинальном интерпретаторе:
 ;	+-----------------+------+-----+
 ;	| размер в словах | цвет | тэг |
 ;	+-----------------+------+-----+
 ; биты  63              10 9    8 7   0
 ;
+;	Структура заголовка в данной имплементации:
+;	+------+-----------------+-----+
+;	|маркер| размер в словах | тэг |
+;	+------+-----------------+-----+
+; биты  63   40 39              8 7   0
+;
+; Маркер используется внутри сборщика мусора (на стадии маркировки).
+;
 ; Указатель на блок равен адресу после заголовка, где и располагаются данные.
 
+wosize_shift := 8
+
 ; 3 wosize ; преобразует размер к формату заголовка
-wosize	equ shl 10
+wosize	equ shl wosize_shift
 macro to_wosize reg
-	shl	reg, 10
+	shl	reg, wosize_shift
 end macro
 
 macro from_wosize reg
-	shr	reg, 10
+	shr	reg, wosize_shift
 end macro
 
 Max_wosize	:= 1 shl 32 - 1	; В оригинале 54. Умещаем в младшие 32 бита регистра.
 
-Wosize_mask	:= 1 shl (bsr (Max_wosize+1) + 10) - 1
+Wosize_mask	:= 1 shl (bsr (Max_wosize+1) + wosize_shift) - 1
 
-Caml_white	:= 0 shl 8
-Caml_gray	:= 1 shl 8
-Caml_blue	:= 2 shl 8
-Caml_black	:= 3 shl 8
 
 Pair_tag	:=	0
 
