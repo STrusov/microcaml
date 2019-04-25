@@ -1268,27 +1268,31 @@ end Instruct
 ;end Instruct
 
 
+; При размещении блока, во время копирования аргументов завмыкания со стека на кучу,
+; возможен вызов сборщика мусора. Поскольку эти значения могут представлять собой
+; ссылки на объекты (живые), их необходжимо сохранять в стеке до завершения
+; формирования блока. Так же и адрес блока д.б. вычислен на завершеющей стадии.
 CLOSURE_impl:
 	mov	ecx, [opcode.1]	; Количество аргументов замыкания.
 	jecxz	.no_arg
 	push	accu	; 1й аргумент для дальнейшего копирования.
 .no_arg:
-;	Alloc_small(accu, 1 + nvars, Closure_tag);
 	lea	eax, [ecx+1]
+	mov	accud, eax
 	to_wosize	eax 
 	or	eax, Closure_tag
 	stos	Val_header[alloc_small_ptr]
-	mov	accu, alloc_small_ptr
 	movsxd	rax, [opcode.2]
 	lea	rax, [opcode.2 + rax * sizeof opcode]
-;	Сначала сохраняем адрес кода (pc + *pc), затем копируем аргументы со стека.
-.copy:	stos	qword[alloc_small_ptr]
-;	for (i = 0; i < nvars; i++) Field(accu, i + 1) = sp[i];
-	jecxz	.next
-	pop	rax
-	dec	ecx
-	jmp	.copy
-.next:	next_opcode 2
+;	Cохраняем указатель на байт-код замыкания (pc + *pc).
+	stos	qword[alloc_small_ptr]
+;	Копируем аргументы замыкания со стека.
+	mov	rsi, rsp
+rep	movs	qword[alloc_small_ptr], [rsi]
+	mov	rsp, rsi
+	neg	accu
+	lea	accu, [alloc_small_ptr + (accu - 0) * sizeof value]
+	next_opcode 2
 	Instruct_next
 display_num_ln "CLOSURE_impl: ", $-CLOSURE_impl
 
