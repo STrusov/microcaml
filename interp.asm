@@ -625,21 +625,32 @@ end Instruct
 
 Instruct	PUSHATOM
 
+;	хвост MAKEBLOCK
+..MAKEBLOCK_CNT:
+	neg	accu
+	lea	accu, [alloc_small_ptr + accu * sizeof value]
+	Instruct_next
+;Instruct_size
 end Instruct
 
 
+; При размещении блока, во время копирования значений со стека на кучу,
+; возможен вызов сборщика мусора. Поскольку значения могут представлять собой
+; ссылки на объекты (живые), их необходжимо сохранять в стеке до завершения
+; формирования блока. Так же и адрес блока д.б. вычислен на завершеющей стадии.
 Instruct	MAKEBLOCK
 	mov	ecx, [opcode.1]		; wosize
 	mov	eax, ecx
 	to_wosize	eax
 	or	eax, [opcode.2]		; tag
+	next_opcode	2
 	push	accu
 	stos	Val_header[alloc_small_ptr]
-	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
-.copy:	pop	rax
-	stos	qword[alloc_small_ptr]
-	loopnz	.copy
-	jmp	Instruct_MAKEBLOCK1.next2
+	mov	rsi, rsp
+	mov	accud, ecx
+rep	movs	qword[alloc_small_ptr], [rsi]
+	mov	rsp, rsi
+	jmp	..MAKEBLOCK_CNT
 ;	Instruct_next
 Instruct_size
 end Instruct
@@ -651,12 +662,11 @@ Instruct	MAKEBLOCK1
 	or	eax, 1 wosize
 	stos	Val_header[alloc_small_ptr]
 	mov	rax, accu
-	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
+;	Значение на стеке будет учтено сборщиком мусора
+	push	accu
 	stos	qword[alloc_small_ptr]
-	Instruct_next
-
-;	хвост MAKEBLOCK
-.next2:	next_opcode	2
+	pop	accu
+	lea	accu, [alloc_small_ptr - 1 * sizeof value]	; Адрес блока (за заголовком).
 	Instruct_next
 Instruct_size
 end Instruct
@@ -667,11 +677,12 @@ Instruct	MAKEBLOCK2
 	next_opcode
 	or	eax, 2 wosize
 	stos	Val_header[alloc_small_ptr]
-	mov	rax, accu
-	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
-	stos	qword[alloc_small_ptr]
-	pop	rax
-	stos	qword[alloc_small_ptr]
+	push	accu
+	mov	rsi, rsp
+	movs	qword[alloc_small_ptr], [rsi]
+	movs	qword[alloc_small_ptr], [rsi]
+	mov	rsp, rsi
+	lea	accu, [alloc_small_ptr - 2 * sizeof value]	; Адрес блока (за заголовком).
 	Instruct_next
 Instruct_size
 end Instruct
@@ -680,15 +691,16 @@ end Instruct
 Instruct	MAKEBLOCK3
 	mov	eax, [opcode.1]	; tag
 	next_opcode
-	or	eax, 3 wosize
+;	or	eax, 3 wosize
+	mov	ah, 3
 	stos	Val_header[alloc_small_ptr]
-	mov	rax, accu
-	mov	accu, alloc_small_ptr	; Адрес блока (за заголовком).
-	stos	qword[alloc_small_ptr]
-	pop	rax
-	stos	qword[alloc_small_ptr]
-	pop	rax
-	stos	qword[alloc_small_ptr]
+	push	accu
+	mov	rsi, rsp
+	movs	qword[alloc_small_ptr], [rsi]
+	movs	qword[alloc_small_ptr], [rsi]
+	movs	qword[alloc_small_ptr], [rsi]
+	mov	rsp, rsi
+	lea	accu, [alloc_small_ptr - 3 * sizeof value]	; Адрес блока (за заголовком).
 	Instruct_next
 Instruct_size
 end Instruct
