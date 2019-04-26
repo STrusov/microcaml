@@ -1297,48 +1297,71 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 display_num_ln "CLOSURE_impl: ", $-CLOSURE_impl
 
 
+; Примечание: нижеследующая и предыдущая (CLOSURE_impl) подпрограммы объёмны,
+; вероятно, имеет смысл выполнять явную проверку необходимости выделения памяти,
+; а не полагаться на обработчик SIGSEGV. Что позволит упростить реализацию.
+;
+; В данном случае формирование блока после заголовка происходит в два этапа:
+; 1. Копирование аргументов со стека - в конец блока. Поскольку их значения
+;    могут представлять собой ссылки на объекты (живые), их необходжимо
+;    сохранять в стеке до завершения формирования блока.
+; 2. Создание инфиксных блоков с размещеним указателей на них на стеке.
+;    Если при этом произойдёт вызов сборщика мусора, инфиксные блоки будут
+;    сдвинуты за пределы блока замыкания, создание которого не завершено.
+;    В случае выполнения пункта 1, указанная ситуация исключена, поскольку
+;    сборка мусора сработает при доступе к старшим адресам, куда копируются
+;    аргументы.
+;    Если же количество аргументов равно 0, следует обратиться к ячейке памяти
+;    в конце блока замыкания, для гарантии доступности памяти.
+;
+;    Адрес блока для возврата в accu д.б. вычислен после 1й стадии.
 CLOSUREREC_impl:
 	mov	eax, [opcode.1]	; Количество функторов.
 	mov	ecx, [opcode.2]	; Количество аргументов замыкания.
 ;		следом идут смещения для vm_pc (nfuncs шт.); вычисленный адрес
 ;		переносится в хранилище, за ним аргументы (снимаются со стека)
-	lea	eax, [2*eax+ecx-1]
-	mov	esi, eax
+	lea	esi, [2*rax-1]
+	lea	eax, [2*rax+rcx-1]
 	to_wosize eax
 	or	eax, Closure_tag
 	stos	Val_header[alloc_small_ptr]
-	mov	accu, alloc_small_ptr
+;	Адрес за блоками инфиксов (1й из них без заголовка)
 	lea	alloc_small_ptr, [alloc_small_ptr + rsi * sizeof value]
+;	Количество ячеек в блоке - для вычисления его адреса.
+	lea	eax, [rsi + rcx]
+	neg	rax
 ;	Копируем аргументы (аккумулятор и со стека), если они есть.
-	jecxz	.infix
-	mov	rax, accu
-.cpa:	stos	qword[alloc_small_ptr]
-;	p = &Field(accu, nfuncs * 2 - 1);
-;	for (i = 0; i < nvars; i++, p++) *p = sp[i];
-	dec	ecx
-	jecxz	.infix
-	pop	rax
-	jmp	.cpa
-.infix:	; Копируем указатели на код, предварая их инфиксными заголовками, кроме 1го.
-	mov	rsi, accu
+	jecxz	.noarg
+int3
+	push	accu
+	mov	rsi, rsp
+rep	movs	qword[alloc_small_ptr], [rsi]
+	mov	rsp, rsi
+	jmp	.infix
+.noarg:	cmp	[alloc_small_ptr - sizeof value], rax
+.infix:;Далее вызов сборщика мусора исключён.
+	mov	rsi, alloc_small_ptr	; временно храним адрес за блоком
+	lea	alloc_small_ptr, [alloc_small_ptr + rax * sizeof value]
+	mov	accu, alloc_small_ptr
+;	Копируем указатели на код, предварая их инфиксными заголовками, кроме 1го.
 	zero	ecx
 	mov	r8d, [opcode.1]
 	next_opcode 2
 	jmp	.cpp
 .cpi:	mov	eax, ecx
-	to_wosize eax
+;	to_wosize eax * 2
+	shl	eax, wosize_shift + 1
 	or	eax, Infix_tag
-	mov	[rsi], rax
-	lea	rsi, [rsi+sizeof value]
-.cpp:	push	rsi
+	stos	qword[alloc_small_ptr]
+.cpp:	push	alloc_small_ptr
 	movsxd	rax, [opcode.1]
 	lea	rax, [vm_pc + rax * sizeof opcode]
 	next_opcode
-	mov	[rsi], rax
-	lea	rsi, [rsi+sizeof value]
+	stos	qword[alloc_small_ptr]
 	inc	ecx
 	cmp	ecx, r8d
 	jc	.cpi
+	mov	alloc_small_ptr, rsi
 	Instruct_next	
 display_num_ln "CLOSUREREC_impl: ", $-CLOSUREREC_impl
 
