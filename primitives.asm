@@ -355,7 +355,7 @@ proc caml_alloc_string
 ;	Завершающий байт = размер блока в байтах - 1 - длина строки
 	bswap	rdx
 	mov	[alloc_small_ptr_backup + rcx * sizeof value], rdx
-;	Предыдыщая команда может изменить содержимое alloc_small_ptr_backup,
+;	Предыдущая команда может изменить содержимое alloc_small_ptr_backup,
 ;	потому порядок выполнения важен.
 	lea	rax, [alloc_small_ptr_backup + sizeof value]
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (rcx + 1) * sizeof value]
