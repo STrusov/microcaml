@@ -23,7 +23,7 @@ alloc_small_ptr		equ rdi	; С-функции портят регистр
 alloc_small_ptr_backup	equ r14	; копия для сохранения при вызовах
 
 ; Инициализация кучи. RDI копируется в R14 и обратно в обработчиках C_CALL.
-macro heap_small_init
+macro heap_small_ptr_init
 ;	В качестве кучи используем массив байт в сегменте неинициализированных данных
 	lea	alloc_small_ptr, [heap_small]
 end macro
