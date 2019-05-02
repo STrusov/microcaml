@@ -192,19 +192,13 @@ C_primitive caml_bitvect_test
 end C_primitive
 
 
-; см. caml_blit_string
-; C_primitive caml_blit_bytes
-caml_blit_bytes:
-;	jmp	caml_blit_string
-;end C_primitive
-
-
 ; RDI	- адрес начала источника.
 ; RSI	- смещение от адреса начала источника (OCaml value).
 ; RDX	- адрес начала приёмника.
 ; RCX	- смещение от адреса начала приёмника (OCaml value).
 ; R8	- количество байт для копирования.
-C_primitive caml_blit_string
+C_primitive caml_blit_bytes
+caml_blit_string:
 	Ulong_val	rsi
 	lea	rsi, [rdi + rsi]
 	Ulong_val	rcx
