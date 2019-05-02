@@ -400,8 +400,8 @@ CODE_INT8		:= 0x0
 	jz	.code_string8
 	cmp	al, CODE_INT8
 	jz	.code_int8
-;	cmp	al, CODE_INT16
-;	jz	.code_int16
+	cmp	al, CODE_INT16
+	jz	.code_int16
 	cmp	al, CODE_CUSTOM
 	jz	.code_custom
 
@@ -421,13 +421,12 @@ CODE_INT8		:= 0x0
 	inc	rsi
 	jmp	.read_int_ok
 
-;.code_int16:
-;	xor	eax, eax
-;	lods	byte[rsi]
-;	shl	eax, 8
-;	lods	byte[rsi]
-;	movsx	rax, ax
-;	jmp	.read_int_ok
+.code_int16:
+	lods	byte[rsi]
+	shl	eax, 8
+	lods	byte[rsi]
+	movsx	rax, ax
+	jmp	.read_int_ok
 
 .small_blocl:
 	mov	ecx, eax
