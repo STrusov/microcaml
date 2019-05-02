@@ -595,7 +595,7 @@ include 'primitives.inc'
 bytecode_sect_names	db sect_names
 
 error_bytecode_open	db 'Ошибка открытия файла '	; нет завершающего 0
-bytecode_filename	db 'test/model1',0
+include 'bytecode_filename.inc'
 error_bytecode_map	db 'Ошибка чтения файла', 10, 0
 error_bytecode_invalid	db ' Невалидный формат', 10, 0
 error_bytecode_dlls	db 'Примитивы во внешних библиотеках пока не поддерживаются', 10, 0
