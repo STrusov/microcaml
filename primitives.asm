@@ -211,10 +211,10 @@ C_primitive caml_blit_string
 	lea	rdi, [rdx + rcx]
 	Ulong_val	r8
 	mov	rcx, r8
-	shr	rcx, 4	; / 16
+	shr	rcx, 3	; / 8
 rep	movs	qword[rdi], [rsi]
 	mov	rcx, r8
-	and	rcx, 16 - 1
+	and	rcx, 8 - 1
 rep	movs	byte[rdi], [rsi]
 	ret
 end C_primitive
