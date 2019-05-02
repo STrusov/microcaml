@@ -389,7 +389,7 @@ CODE_INT8		:= 0x0
 .read_code:
 	lods	byte[rsi]
 	cmp	al, PREFIX_SMALL_BLOCK
-	jae	.small_blocl
+	jae	.small_block
 	cmp	al, PREFIX_SMALL_INT
 	jae	.small_int
 	cmp	al, PREFIX_SMALL_STRING
@@ -428,7 +428,7 @@ CODE_INT8		:= 0x0
 	movsx	rax, ax
 	jmp	.read_int_ok
 
-.small_blocl:
+.small_block:
 	mov	ecx, eax
 	shr	ecx, 4
 	and	ecx, 7		; размер
