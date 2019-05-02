@@ -960,7 +960,9 @@ end Instruct
 
 
 Instruct	CONST1
-
+	mov	accu, Val_int 1
+	Instruct_next
+Instruct_size
 end Instruct
 
 
