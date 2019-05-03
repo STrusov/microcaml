@@ -608,7 +608,7 @@ Instruct	ATOM0
 
 if HEAP_GC
 ..heap_set_gc_start:
-	heap_set_gc_start
+	heap_set_gc_start_address
 	Instruct_next
 end if
 Instruct_size
