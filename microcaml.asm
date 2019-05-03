@@ -369,6 +369,7 @@ PREFIX_SMALL_BLOCK	:= 0x80
 PREFIX_SMALL_INT	:= 0x40
 PREFIX_SMALL_STRING	:= 0x20
 CODE_CUSTOM		:= 0x12
+CODE_DOUBLE_LITTLE	:= 0xC
 CODE_STRING8		:= 0x9
 CODE_BLOCK32		:= 0x8
 CODE_SHARED8		:= 0x4
@@ -394,6 +395,8 @@ CODE_INT8		:= 0x0
 	jz	.code_block32
 	cmp	al, CODE_STRING8
 	jz	.code_string8
+	cmp	al, CODE_DOUBLE_LITTLE
+	jz	.code_double_little
 	cmp	al, CODE_INT8
 	jz	.code_int8
 	cmp	al, CODE_INT16
@@ -499,6 +502,13 @@ rep	stos	byte[intern_dest]
 	mov	eax, edx
 	stos	byte[intern_dest]
 	pop	rax
+	jmp	.read_item_ok
+
+.code_double_little:
+	mov	eax, 1 wosize or Double_tag
+	stos	Val_header[intern_dest]
+	mov	rax, intern_dest
+	movs	qword[intern_dest], [rsi]
 	jmp	.read_item_ok
 
 .code_block32:
