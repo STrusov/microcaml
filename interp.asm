@@ -246,7 +246,10 @@ end Instruct
 
 
 Instruct	PUSHACC6
-
+	push	accu
+	mov	accu, [vm_sp.6]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
