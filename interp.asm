@@ -52,7 +52,7 @@ macro	interpreter_init
 interprete:
 	lea	vm_base, [execute_instruction]
 	zero	extra_args
-	mov	env, Atom 0
+	lea	env, [Atom 0]
 	mov	accud, Val_int_0
 end macro
 
@@ -606,7 +606,7 @@ end Instruct
 
 Instruct	ATOM0
 ;	адрес за заголовком
-	lea	accu, [caml_atom_table + sizeof value]
+	lea	accu, [Atom 0]
 	Instruct_next
 
 if HEAP_GC
