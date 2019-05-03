@@ -141,14 +141,8 @@ end macro
 
 _start:
 main:
-.stack_size	:= 8 * 18
-assert (sizeof .ksa <= .stack_size)
-assert (sizeof .st <= .stack_size)
+.stack_size	:= sizeof .st
 	sub	rsp, .stack_size
-
-;	Устанавливаем обработчик SIGSEGV,
-;	прозрачно управляющий кучей и сборкой мусора.
-	heap_sigsegv_handler_init
 
 ;	Арифметический сопроцессор настроен как требует IEEE
 ;	везде, кроме версий FreeBSD до 4.0R
@@ -307,10 +301,11 @@ assert (sizeof .st <= .stack_size)
 ;	копируется из caml_builtin_cprim в caml_build_primitive_table_builtin().
 ;	Здесь создаём таблицу на этапе ассемблирования, см. caml_builtin_cprim
 
-;	Инициализируем указатель на текущее свободное место в куче.
+;	Инициализируем кучу.
+;	Указатель на текущее свободное место в куче - alloc_small_ptr.
 ;	Выделение памяти происходит путём его увеличения, новые страницы
 ;	добавляются прозрачно по необходимости.
-	heap_small_ptr_init
+	heap_init
 
 ; Заголовок блока данных, расположенный перед ними.
 ;struct marshal_header
@@ -542,7 +537,7 @@ restore dest
 ;	при поиске ссылок (roots) на объекты в куче.
 ;	Объекты, расположенные до текущего значения alloc_small_ptr,
 ;	считаются статическими - не подлежат рассмотрению сборщиком мусора.
-	heap_init
+	heap_enable_gc
 
 ;	Подготавливаем виртуальную машину и переходим к первой инструкции
 	mov	vm_pc, [.sect_code]

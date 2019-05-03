@@ -22,27 +22,39 @@ HEAP_INCREMENT := 1000h	; 4096
 alloc_small_ptr		equ rdi	; С-функции портят регистр
 alloc_small_ptr_backup	equ r14	; копия для сохранения при вызовах
 
-; Инициализация кучи. RDI копируется в R14 и обратно в обработчиках C_CALL.
-macro heap_small_ptr_init
+; Для инициализации кучи используется макрос heap_init.
+; Возможно инициализировать кучу раздельно макросами
+; heap_set_sigsegv_handler и heap_set_limits, имея ввиду, что
+; результат сгенерированного между ними SIGSEGV не определён.
+;
+; Для активации сборщика мусора (при условии HEAP_GC) - heap_enable_gc.
+;
+; Если надо объявить размещённые на куче объекты неподлежащими для сборки мусора,
+; используется макрос heap_set_gc_start_address.
+
+; Инициализация параметров кучи; текущий адрес аллокации и верхняя граница.
+; RDI копируется в R14 и обратно в обработчиках C_CALL, потому задаём только 1й.
+macro heap_set_limits
 ;	В качестве кучи используем массив байт в сегменте неинициализированных данных
 	lea	alloc_small_ptr, [heap_small]
-end macro
-
-; Макрос в том числе делает объекты в куче статическими, запрещая их удаление.
-macro heap_set_gc_start
-	mov	[heap_descriptor.gc_start], alloc_small_ptr
-end macro
-
-; Иниациализация необходимых для работы кучи и сборщика мусора параметров.
-macro heap_init
-if HEAP_GC
-	heap_set_gc_start
-	mov	[heap_descriptor.sp_top], rsp
-display 'Сборщик мусора активен.', 10
-end if
 	lea	rax, [heap_small.unaligned_end + PAGE_SIZE]
 	and	rax, not (PAGE_SIZE-1)
 	mov	[heap_descriptor.uncommited], rax
+end macro
+
+; Макрос в том числе делает объекты в куче статическими, запрещая их удаление.
+macro heap_set_gc_start_address
+	mov	[heap_descriptor.gc_start], alloc_small_ptr
+end macro
+
+; Сборщик мусора активируется. Устанавливаются нижняя граница адресов кучи
+; и верхняя граница адресов стека (для поиска ссылок на объекты в куче).
+macro heap_enable_gc
+if HEAP_GC
+	heap_set_gc_start_address
+	mov	[heap_descriptor.sp_top], rsp
+display 'Сборщик мусора активен.', 10
+end if
 end macro
 
 ; При выходе за выделенные под кучу страницы памяти генерируется SIGSEGV.
@@ -50,10 +62,11 @@ end macro
 ; добавляет новые страницы по необходимости.
 ;
 ; Макрос устанавливает обработчик.
-macro	heap_sigsegv_handler_init
+macro	heap_set_sigsegv_handler
 	virtual at rsp
 	.ksa	kernel_sigaction
 	end virtual
+	sub	rsp, sizeof .ksa
 	mov	rdi, rsp
 	mov	rax, heap_sigsegv_handler
 	stos	qword[rdi]
@@ -69,12 +82,20 @@ rep	stos	qword[rdi]
 	mov	rsi, rsp
 	zero	edx
 	sys.rt_sigaction
+	add	rsp, sizeof .ksa
 	j_ok	.sigseg_handler_installed
 	push	rax
 	puts	error_sigsegv_nohandler
 	pop	rdi
 	jmp	sys_exit
 .sigseg_handler_installed:
+end macro
+
+; Инициализация кучи. Устанавливается регистр-аллокатор и верхняя граница,
+; а так же обработчик исключений, обеспечивающий рост кучи.
+macro heap_init
+	heap_set_sigsegv_handler
+	heap_set_limits
 end macro
 
 ; Параметры кучи. Д.б. в секции данных.
