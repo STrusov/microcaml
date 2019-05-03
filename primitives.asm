@@ -975,11 +975,14 @@ C_primitive caml_int64_div
 end C_primitive
 
 
-;CAMLprim value caml_int64_float_of_bits(value vi)
+; EDI - адрес источника для копирования в кучу числа с плавающей точкой.
 C_primitive caml_int64_float_of_bits
-C_primitive_stub
-;  return caml_copy_double(caml_int64_float_of_bits_unboxed(Int64_val(vi)));
-	mov	accu, '64_float'
+	mov	eax, 1 wosize or Double_tag
+	mov	[alloc_small_ptr_backup], rax
+	mov	rax, [rdi]
+	mov	[alloc_small_ptr_backup + sizeof value], rax
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
 	ret
 end C_primitive
 
