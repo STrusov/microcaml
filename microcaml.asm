@@ -376,6 +376,7 @@ PREFIX_SMALL_STRING	:= 0x20
 CODE_CUSTOM		:= 0x12
 CODE_STRING8		:= 0x9
 CODE_BLOCK32		:= 0x8
+CODE_SHARED8		:= 0x4
 CODE_INT16		:= 0x1
 CODE_INT8		:= 0x0
 	cmp	rsp, rbp
@@ -402,6 +403,8 @@ CODE_INT8		:= 0x0
 	jz	.code_int8
 	cmp	al, CODE_INT16
 	jz	.code_int16
+	cmp	al, CODE_SHARED8
+	jz	.code_shared8
 	cmp	al, CODE_CUSTOM
 	jz	.code_custom
 
@@ -427,6 +430,12 @@ CODE_INT8		:= 0x0
 	lods	byte[rsi]
 	movsx	rax, ax
 	jmp	.read_int_ok
+
+.code_shared8:
+	zero	eax
+	lods	byte[rsi]
+	mov	rax, 'C_SHARED'
+	jmp	.read_item_ok
 
 .small_block:
 	mov	ecx, eax
