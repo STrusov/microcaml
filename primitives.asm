@@ -2261,9 +2261,49 @@ C_primitive caml_sys_file_exists
 end C_primitive
 
 
-
+; EDI - не используется
+; Возвращает пару значений:
+; 0й - строка с именем исполняемого файла (байт-кода);
+; 1й - массив из аргументов (начинается с имени исполняемого файла).
+;
+; Реализация не полная:
+; имя исполняемого файла задано строковой константой в интерпретаторе.
 C_primitive caml_sys_get_argv
-
+C_primitive_stub
+;	Вычисляем длину строки и копируем её на кучу.
+	zero	edi
+	zero	eax
+	lea	rsi, [bytecode_filename]
+.cnt:	cmp	[rsi + rdi], al
+	jz	.len
+	inc	edi
+	jmp	.cnt
+.len:	push	rdi rsi
+	call	caml_alloc_string
+	pop	rsi rcx
+	mov	rdi, rax
+rep	movs	byte[rdi], [rsi]
+;	Сохраняем ссылку на exe_name на случай вызова сборщика мусора.
+	push	rax
+;	После данной команды память доступна и ссылки валидны.
+	test	[alloc_small_ptr_backup + (2 + 2) * sizeof value], rax
+;	argv = массив из 1го элемента (с тегом 0)
+	mov	ecx, 1 wosize
+	mov	[alloc_small_ptr_backup + 0 * sizeof value], rcx
+	pop	rax
+	mov	[alloc_small_ptr_backup + 1 * sizeof value], rax
+;	Формируем возвращаемый объект.
+;	mov	ecx, 2 wosize
+	add	ecx, ecx
+	mov	[alloc_small_ptr_backup + 2 * sizeof value], rcx
+;	0й элемент пары - ссылка на строку с именем исполняемого файла.
+	mov	[alloc_small_ptr_backup + 3 * sizeof value], rax
+;	1й элемент пары - ссылка на масив.
+	lea	rax, [alloc_small_ptr_backup + 1 * sizeof value]
+	mov	[alloc_small_ptr_backup + 4 * sizeof value], rax
+	lea	rax, [alloc_small_ptr_backup +(2 + 1) * sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 5 * sizeof value]
+	ret
 end C_primitive
 
 
@@ -2283,6 +2323,7 @@ end C_primitive
 C_primitive caml_sys_getenv
 
 end C_primitive
+
 
 
 
