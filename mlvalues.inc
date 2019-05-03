@@ -93,5 +93,5 @@ No_scan_tag	:=	251
 
 String_tag	:=	252
 Double_tag	:=	253
-
+Double_array_tag :=	254
 Custom_tag	:=	255
