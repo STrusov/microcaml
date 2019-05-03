@@ -1339,7 +1339,6 @@ CLOSUREREC_impl:
 	neg	rax
 ;	Копируем аргументы (аккумулятор и со стека), если они есть.
 	jecxz	.noarg
-int3
 	push	accu
 	mov	rsi, rsp
 rep	movs	qword[alloc_small_ptr], [rsi]
