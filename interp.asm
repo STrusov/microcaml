@@ -172,7 +172,8 @@ end Instruct
 
 
 Instruct	ACC5
-
+	mov	accu, [vm_sp.5]
+	Instruct_next
 end Instruct
 
 
