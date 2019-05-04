@@ -1054,7 +1054,16 @@ end Instruct
 
 
 Instruct	DIVINT
-
+;	Проверку делителя на 0 не выполняем, но надо бы обработать исключение.
+	pop	rcx
+	sar	rcx, 1
+	mov	rax, accu
+	sar	rax, 1
+	cqo
+	idiv	rcx
+	lea	accu, [rax * 2 + 1]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
