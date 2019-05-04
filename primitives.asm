@@ -2197,13 +2197,6 @@ C_primitive caml_sys_close
 end C_primitive
 
 
-; Возвращает тип 1 - интерпретатор байткода.
-C_primitive caml_sys_const_backend_type
-	mov	eax, Val_int(1)
-	ret
-end C_primitive
-
-
 ; Возвращает Val_false на Low Endian
 C_primitive caml_sys_const_big_endian
 	mov	eax, Val_false
@@ -2227,11 +2220,15 @@ C_primitive caml_sys_const_max_wosize
 end C_primitive
 
 
+; Возвращает тип Val_int(1) - интерпретатор байткода.
+caml_sys_const_backend_type:
+
 ; Возвращает Val_true на *nix системах.
 C_primitive caml_sys_const_ostype_unix
 	mov	eax, Val_true
 	ret
 end C_primitive
+
 
 ; Возвращает Val_true в случае Cygwin, Val_false в данной реализации.
 caml_sys_const_ostype_cygwin:
