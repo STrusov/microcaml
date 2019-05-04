@@ -22,6 +22,7 @@ Val_int_1	:= Val_int 1
 Val_unit	:= Val_int_0
 Val_emptylist	:= Val_int_0
 Val_false	:= Val_int 0
+Val_true	:= Val_int 1
 assert Val_int_0 = 1
 assert Val_int_1 = 3
 

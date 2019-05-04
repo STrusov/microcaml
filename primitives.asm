@@ -2231,9 +2231,10 @@ C_primitive caml_sys_const_ostype_cygwin
 end C_primitive
 
 
-
+; Возвращает Val_true на *nix системах.
 C_primitive caml_sys_const_ostype_unix
-
+	mov	eax, Val_true
+	ret
 end C_primitive
 
 
