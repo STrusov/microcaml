@@ -2211,9 +2211,11 @@ C_primitive caml_sys_const_big_endian
 end C_primitive
 
 
-
+; Возвращает размер целого с битах - 63
+; (т.к. 0й бит используется для различения целых и ссылок).
 C_primitive caml_sys_const_int_size
-
+	mov	eax, Val_int(8 * sizeof(value) - 1)
+	ret
 end C_primitive
 
 
