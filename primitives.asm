@@ -2197,9 +2197,10 @@ C_primitive caml_sys_close
 end C_primitive
 
 
-
+; Возвращает тип 1 - интерпретатор байткода.
 C_primitive caml_sys_const_backend_type
-
+	mov	eax, Val_int(1)
+	ret
 end C_primitive
 
 
