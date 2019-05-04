@@ -2204,9 +2204,10 @@ C_primitive caml_sys_const_backend_type
 end C_primitive
 
 
-
+; Возвращает Val_false на Low Endian
 C_primitive caml_sys_const_big_endian
-
+	mov	eax, Val_false
+	ret
 end C_primitive
 
 
