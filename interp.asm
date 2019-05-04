@@ -1049,7 +1049,12 @@ end Instruct
 
 
 Instruct	MULINT
-
+	pop	rcx
+	Int_val rcx
+	Int_val accu
+	imul	accu, rcx
+	Val_int	accu
+	Instruct_next
 end Instruct
 
 
