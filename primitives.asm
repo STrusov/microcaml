@@ -616,9 +616,14 @@ C_primitive caml_gc_counters
 end C_primitive
 
 
-
+; EDI - не используется.
 C_primitive caml_gc_full_major
-
+if HEAP_GC
+	mov	alloc_small_ptr, alloc_small_ptr_backup
+	call	heap_mark_compact_gc
+	mov	alloc_small_ptr_backup, alloc_small_ptr
+end if
+	ret
 end C_primitive
 
 
