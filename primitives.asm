@@ -2238,9 +2238,10 @@ C_primitive caml_sys_const_ostype_unix
 end C_primitive
 
 
-
+; Возвращает Val_true в случае ОС Windows, Val_false в данной реализации.
 C_primitive caml_sys_const_ostype_win32
-
+	mov	eax, Val_false
+	ret
 end C_primitive
 
 
