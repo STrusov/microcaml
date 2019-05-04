@@ -1178,7 +1178,7 @@ end Instruct
 
 
 Instruct	OFFSETINT
-	mov	eax, [opcode.1]
+	movsxd	rax, [opcode.1]
 	next_opcode
 	lea	accu, [accu + rax*2]
 	Instruct_next
