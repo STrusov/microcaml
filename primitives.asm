@@ -2307,9 +2307,28 @@ rep	movs	byte[rdi], [rsi]
 end C_primitive
 
 
-
+; EDI - не используется
+; Возвращает кортеж из 3-х элементов:
+; 0-й - тип ОС (строка "Unix");
+; 1-й - размер Value в битах (64);
+; 2-й - является ли архитектура исполняющей машины Big Endian (Val_false).
 C_primitive caml_sys_get_config
-
+	mov	edi, 4
+	call	caml_alloc_string
+	mov	dword[rax], 'Unix'
+;	Сохраняем ссылку на тип ОС на случай вызова сборщика мусора.
+	push	rax
+	mov	eax, 3 wosize
+	mov	Val_header[alloc_small_ptr_backup + 0 * sizeof value], rax
+	mov	eax, Val_int (8 * sizeof value)
+	mov	[alloc_small_ptr_backup + (1 + 1) * sizeof value], rax
+	mov	eax, Val_false
+	mov	[alloc_small_ptr_backup + (2 + 1) * sizeof value], rax
+	pop	rax
+	mov	[alloc_small_ptr_backup + (0 + 1) * sizeof value], rax
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (3 + 1) * sizeof value]
+	ret
 end C_primitive
 
 
