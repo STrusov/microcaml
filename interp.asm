@@ -188,7 +188,11 @@ end Instruct
 
 
 Instruct	ACC
-
+	mov	eax, [opcode.1]
+	next_opcode
+	mov	accu, [vm_sp + rax * sizeof vm_sp]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
