@@ -96,9 +96,23 @@ C_primitive caml_array_get
 end C_primitive
 
 
-
+; RDI - адрес массива
+; RSI - индекс элемента (OCaml value)
 C_primitive caml_array_get_addr
-
+C_primitive_stub
+	Long_val rsi
+	js	.bound_error	; caml_array_bound_error
+	mov	rax, Val_header[rdi - sizeof value]
+	from_wosize rax
+	cmp	rax, rsi
+	jc	.bound_error
+	lea	rax, [rdi + rsi * sizeof value]
+	ret
+.bound_error:
+	puts	.error_out_of_bounds
+	mov	eax, -EINVAL
+	jmp	sys_exit
+.error_out_of_bounds	db 'Выход за пределы массива', 10, 0
 end C_primitive
 
 
