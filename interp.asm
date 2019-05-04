@@ -1208,7 +1208,16 @@ end Instruct
 
 
 Instruct	BNEQ
-
+	movsxd	rax, [opcode.1]
+	Long_val accu
+	cmp	accu, rax
+	jnz	.br
+	next_opcode 2
+	Instruct_next
+.br:	movsxd	rax, [opcode.2]
+	lea	vm_pc, [opcode.2 + rax * sizeof opcode]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
