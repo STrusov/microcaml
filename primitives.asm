@@ -407,9 +407,10 @@ C_primitive caml_dynlink_open_lib
 end C_primitive
 
 
-
+; EDI - требуемы размер стека (OCaml value)
+; Нужно ли заранее отображать страницы стека?
 C_primitive caml_ensure_stack_capacity
-
+	ret
 end C_primitive
 
 
