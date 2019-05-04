@@ -786,7 +786,11 @@ end Instruct
 
 
 Instruct	VECTLENGTH
-
+	mov	accu, Val_header[accu - sizeof value]
+	from_wosize accu
+	Val_int	accu
+	Instruct_next
+Instruct_size
 end Instruct
 
 
