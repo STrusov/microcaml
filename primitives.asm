@@ -1903,9 +1903,19 @@ C_primitive caml_obj_block
 end C_primitive
 
 
-
+; RDI - адрес исходного объекта.
+; Возвращает адрес созданной копии.
 C_primitive caml_obj_dup
-
+;	В оригинале проверяется No_scan_tag
+	mov	rcx, Val_header[rdi - sizeof value]
+	mov	[alloc_small_ptr_backup], rcx
+	from_wosize rcx
+	mov	rsi, rdi
+	lea	rdi, [alloc_small_ptr_backup + sizeof value]
+	mov	rax, rdi
+rep	movs	Val_header[rdi], [rsi]
+	mov	alloc_small_ptr_backup, rdi
+	ret
 end C_primitive
 
 
