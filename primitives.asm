@@ -2219,9 +2219,11 @@ C_primitive caml_sys_const_int_size
 end C_primitive
 
 
-
+; Возвращает максимальный размер объекта (блока) на куче.
+; В данной реализации размер умещается в 32 бита, что меньше чем оригинале 0x7fffffffffffff.
 C_primitive caml_sys_const_max_wosize
-
+	mov	rax, Val_int(Max_wosize)
+	ret
 end C_primitive
 
 
