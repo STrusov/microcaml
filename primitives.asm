@@ -2241,9 +2241,10 @@ C_primitive caml_sys_const_ostype_win32
 end C_primitive
 
 
-
+; Возвращает размер слова с битах - 64.
 C_primitive caml_sys_const_word_size
-
+	mov	eax, Val_int(8 * sizeof(value))
+	ret
 end C_primitive
 
 
