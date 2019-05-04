@@ -140,9 +140,27 @@ C_primitive caml_array_set_float
 end C_primitive
 
 
-
+; Возвращает (сылку на) массив, созданный из подмножества элементов исходного.
+; RDI - адрес исходного массива;
+; RSI - номер (от 0) первого элемента подмножества.
+; RDX - количество элементов подмножества.
 C_primitive caml_array_sub
-
+;	В оригинале вызывает универсальную функцию.
+;	Создаём заголовок из тега исходного массива + размер нового.
+	movzx	eax, byte[rdi - sizeof value]
+	Int_val	rdx
+	mov	rcx, rdx
+	to_wosize rdx
+	or	rax, rdx
+	mov	[alloc_small_ptr_backup], rax
+;	Копируем подмножество элементов в новый массив.
+	Int_val	rsi
+	lea	rsi, [rdi + rsi * sizeof value]
+	lea	rdi, [alloc_small_ptr_backup + sizeof value]
+	mov	rax, rdi
+rep	movs	qword[rdi], [rsi]
+	mov	alloc_small_ptr_backup, rdi
+	ret
 end C_primitive
 
 
