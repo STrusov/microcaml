@@ -1096,7 +1096,11 @@ end Instruct
 
 
 Instruct	SUBINT
-
+	pop	rax
+	sub	accu, rax
+	add	accu, 1
+	Instruct_next
+Instruct_size
 end Instruct
 
 
