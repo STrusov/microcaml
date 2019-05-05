@@ -1311,9 +1311,42 @@ C_primitive caml_lt_float
 end C_primitive
 
 
-
+; RDI - ссылка на исходный массив.
+; Если массив состоит из ссылок на числа с плавающей точкой,
+; формирует из них массив значений.
+; Иначе возвращает ссылку на исходный массив.
 C_primitive caml_make_array
-
+	mov	rax, rdi
+	mov	rcx, Val_header[rdi - sizeof value]
+	from_wosize rcx
+	jz	.exit
+	mov	rdx, [rdi]
+;	Выходим, если целое число
+	test	rdx, 1
+	jnz	.exit
+;	или за пределами кучи
+	cmp	rdx, heap_small
+	jc	.exit
+	cmp	rdx, [heap_descriptor.uncommited]
+	jnc	.exit
+;	или по ссылке хранится не вещественное число
+	cmp	byte[rdx - sizeof value], Double_tag
+	jnz	.exit
+;	Формируем заголовок массива вещественных чисел, взяв размер от исходного.
+	mov	rax, Val_header[rdi - sizeof value]
+	mov	al, Double_array_tag
+	mov	Val_header[alloc_small_ptr_backup], rax
+	zero	edx
+;	Разыменовываем ссылки и заносим значения в массив.
+.cp:	mov	rax, [rdi + rdx * sizeof value]
+	mov	rax, [rax]
+	mov	[alloc_small_ptr_backup + (rdx + 1) * sizeof value], rax
+	inc	rdx
+	dec	rcx
+	jnz	.cp
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (rdx + 1) * sizeof value]
+.exit:	ret
 end C_primitive
 
 
