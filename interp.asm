@@ -387,15 +387,28 @@ Instruct	APPLY2
 	push	vm_pc
 	push	rcx
 	push	rax
-	mov	vm_pc, [accu]
-	mov	env, accu
 	mov	extra_args, 1
+.pc:	mov	vm_pc, [accu]
+	mov	env, accu
 	Instruct_next
+Instruct_size
 end Instruct
 
 
 Instruct	APPLY3
-
+	pop	rax
+	pop	rcx
+	pop	r8
+	Val_int	extra_args
+	push	extra_args
+	push	env
+	push	vm_pc
+	push	r8
+	push	rcx
+	push	rax
+	mov	extra_args, 2
+	jmp	Instruct_APPLY2.pc
+Instruct_size
 end Instruct
 
 
