@@ -717,12 +717,35 @@ end Instruct
 
 
 Instruct	MAKEFLOATBLOCK
-
+	mov	ecx, [opcode.1]	; кол-во
+	next_opcode
+	mov	eax, ecx
+	to_wosize rax
+	or	rax, Double_array_tag
+	push	accu
+	stos	Val_header[alloc_small_ptr]
+;	Читаем со стека ссылки на числа и переносим значения в кучу.
+;	Стек оставляем до конца формирования блока на случай сборки мусора.
+	mov	rsi, rsp
+	mov	accud, ecx
+	jmp	..MAKEFLOATBLOCK_CNT
+Instruct_size
 end Instruct
 
 
 Instruct	GETFIELD0
 	mov	accu, [accu + 0 * sizeof value]
+	Instruct_next
+
+..MAKEFLOATBLOCK_CNT:
+.cp:	lods	qword[rsi]
+	mov	rax, [rax]
+	stos	qword[alloc_small_ptr]
+	dec	ecx
+	jnz	.cp
+	mov	rsp, rsi
+	neg	accu
+	lea	accu, [alloc_small_ptr + accu * sizeof value]
 	Instruct_next
 Instruct_size
 end Instruct
