@@ -1067,7 +1067,10 @@ end Instruct
 
 
 Instruct	PUSHCONST3
-
+	push	accu
+	mov	accud, Val_int 3
+	Instruct_next
+Instruct_size
 end Instruct
 
 
