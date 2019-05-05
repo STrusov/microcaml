@@ -96,6 +96,7 @@ C_primitive caml_array_get
 end C_primitive
 
 
+; Возвращает значение элемента массива.
 ; RDI - адрес массива
 ; RSI - индекс элемента (OCaml value)
 C_primitive caml_array_get_addr
@@ -106,7 +107,7 @@ C_primitive_stub
 	from_wosize rax
 	cmp	rax, rsi
 	jc	.bound_error
-	lea	rax, [rdi + rsi * sizeof value]
+	mov	rax, [rdi + rsi * sizeof value]
 	ret
 .bound_error:
 	puts	.error_out_of_bounds
