@@ -530,9 +530,85 @@ C_primitive caml_eq_float
 end C_primitive
 
 
+; Возвращает:
+; > 0	- 1е > 2го;
+; 0	- значения равны;
+; < 0	- 1е < 2го;
+UNORDERED := 1 shl (8 * sizeof value - 1)
+; RDI - 1-е значение;
+; RSI - 2-e значение.
+; RDX - --
+proc compare_val
+val1	equ rdi
+val2	equ rsi
+	cmp	val1, val2
+	jz	.equal
+	test	val1, 1
+	jnz	.val1_is_long
+	test	val2, 1
+	jnz	.val2_is_long
+;	Оба значения - указатели. Проверяем, являются ли они ссылками на блоки.
+	cmp	val1, heap_small
+	jc	.arbitrary_ptr
+	cmp	val1, [heap_descriptor.uncommited]
+	jnc	.arbitrary_ptr
+	cmp	val2, heap_small
+	jc	.arbitrary_ptr
+	cmp	val2, [heap_descriptor.uncommited]
+	jnc	.arbitrary_ptr
+;	Сравниваем теги блоков.
+	movzx	eax, byte[val1 - sizeof value]
+;	cmp	al, Forward_tag
+;	jz	.forward_tag
+	movzx	ecx, byte[val2 - sizeof value]
+;	cmp	cl, Forward_tag
+;	jz	.forward_tag
+	sub	eax, ecx
+	jnz	.exit
+;	cmp	al, Abstract_tag
+;	je	.abstract_tag
+;	jb	.tags
+;	Теги равны - сравниваем размеры
+	mov	rax, Val_header[val1 - sizeof value]
+	mov	rcx, Val_header[val2 - sizeof value]
+	sub	rax, rcx
+	jnz	.exit
+	from_wosize rcx
+;	и значения.
+.1:	mov	rax, [val1]
+	sub	rax, [val2]
+	jnz	.exit
+	lea	val1, [val1 + sizeof value]
+	lea	val2, [val2 + sizeof value]
+	dec	rcx
+	jnz	.1
 
+.equal:	zero	eax
+.exit:	ret
+
+.tags:
+.abstract_tag:
+.forward_tag:
+.arbitrary_ptr:
+.val1_is_long:
+.val2_is_long:
+int3
+ud2
+restore	val2
+restore	val1
+end proc
+
+
+; RDI - 1-е значение;
+; RSI - 2-e значение.
 C_primitive caml_equal
-
+C_primitive_stub
+	call	compare_val
+	test	rax, rax
+	mov	eax, Val_false
+	mov	ecx, Val_true
+	cmovz	eax, ecx
+	ret
 end C_primitive
 
 
