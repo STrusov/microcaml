@@ -2013,11 +2013,17 @@ C_primitive caml_new_lex_engine
 end C_primitive
 
 
-
+; RDI - 1-е значение;
+; RSI - 2-e значение.
 C_primitive caml_notequal
-
+C_primitive_stub
+	call	compare_val
+	test	rax, rax
+	mov	eax, Val_false
+	mov	ecx, Val_true
+	cmovne	eax, ecx
+	ret
 end C_primitive
-
 
 
 C_primitive caml_obj_add_offset
