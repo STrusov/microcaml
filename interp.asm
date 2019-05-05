@@ -853,7 +853,14 @@ end Instruct
 
 
 Instruct	BOOLNOT
-
+;	В оригинале используется вычитание из 4.
+;	Здесь считаем все отличные от Val_false значения как Val_true.
+	cmp	accu, Val_false
+	mov	accud, Val_false
+	mov	eax, Val_true
+	cmove	accud, eax
+	Instruct_next
+Instruct_size
 end Instruct
 
 
