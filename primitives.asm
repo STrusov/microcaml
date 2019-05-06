@@ -72,13 +72,6 @@ C_primitive caml_alloc_float_array
 end C_primitive
 
 
-
-C_primitive caml_array_append
-
-end C_primitive
-
-
-
 C_primitive caml_array_blit
 
 end C_primitive
@@ -164,6 +157,35 @@ rep	movs	qword[rdi], [rsi]
 	ret
 end C_primitive
 
+
+; Возвращает ссылку на объединение 2-х массивов.
+; EDI - 1-й массив;
+; ESI - 2-й массив.
+C_primitive caml_array_append
+;	Суммируем размеры массовов, а тег копируем из 1го (прибавляя его к 0).
+	mov	rdx, Val_header[rsi - sizeof value]
+	mov	rcx, Val_header[rdi - sizeof value]
+	and	rdx, not 0xff
+	lea	rax, [rcx + rdx]
+	mov	Val_header[alloc_small_ptr_backup], rax
+;	Сохраняем ссылки на массивы на случай сборки мусора.
+	push	rsi rdi
+	mov	rsi, rdi
+	from_wosize rcx
+	from_wosize rdx
+	lea	rdi, [alloc_small_ptr_backup + sizeof value]
+rep	movs	qword[rdi], [rsi]
+	pop	rsi	; Адрес первого массива более не нужен.
+	mov	rsi, [rsp]
+	mov	rcx, rdx
+rep	movs	qword[rdi], [rsi]
+	pop	rsi	; Адрес второго массива более не нужен.
+	from_wosize rax
+	neg	rax
+	lea	rax, [rdi + rax * sizeof value]
+	mov	alloc_small_ptr_backup, rdi
+	ret
+end C_primitive
 
 
 C_primitive caml_array_unsafe_get
