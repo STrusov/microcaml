@@ -1384,9 +1384,36 @@ C_primitive caml_make_float_vect
 end C_primitive
 
 
-
+; Создаёт массив идентичных элементов заданного размера.
+; RDI - длина вектора.
+; RSI - элемент
 C_primitive caml_make_vect
-
+	Long_val rdi
+	lea	rax, [Atom 0]
+	jz	.exit
+	mov	rcx, rdi
+	to_wosize rdi
+;	надо: if (wsize > Max_wosize) caml_invalid_argument("Array.make");
+;	Проверяем, не является ли элемент ссылкой на вещественнное число.
+	test	rsi, 1
+	jnz	.val
+	cmp	rsi, heap_small
+	jc	.val
+	cmp	rsi, [heap_descriptor.uncommited]
+	jnc	.val
+	cmp	byte[rsi - sizeof value], Double_tag
+	jnz	.val
+	or	rdi, Double_array_tag
+	mov	rsi, [rsi]
+.val:	mov	Val_header[alloc_small_ptr_backup], rdi
+	zero	rdx
+.@:	mov	[alloc_small_ptr_backup + (1 + rdx) * sizeof value], rsi
+	inc	rdx
+	dec	rcx
+	jnz	.@
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (1 + rdx) * sizeof value]
+.exit:	ret
 end C_primitive
 
 
