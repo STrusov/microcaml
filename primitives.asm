@@ -569,9 +569,15 @@ C_primitive caml_ephe_unset_key
 end C_primitive
 
 
-
+; RDI - адрес 1-го вещественного числа
+; RSI - адрес 2-го вещественного числа
 C_primitive caml_eq_float
-
+	movsd	xmm0, [rdi]
+	ucomisd xmm0, [rdi]
+	mov	rax, Val_false
+	mov	rcx, Val_true
+	cmove	rax, rcx
+	ret
 end C_primitive
 
 
