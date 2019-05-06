@@ -146,14 +146,19 @@ C_primitive caml_array_sub
 	mov	rcx, rdx
 	to_wosize rdx
 	or	rax, rdx
+;	Сохраняем ссылку на массив на случай сборки мусора.
+	push	rdi
 	mov	[alloc_small_ptr_backup], rax
 ;	Копируем подмножество элементов в новый массив.
 	Int_val	rsi
 	lea	rsi, [rdi + rsi * sizeof value]
 	lea	rdi, [alloc_small_ptr_backup + sizeof value]
-	mov	rax, rdi
 rep	movs	qword[rdi], [rsi]
+	from_wosize rax
+	neg	rax
+	lea	rax, [rdi + rax * sizeof value]
 	mov	alloc_small_ptr_backup, rdi
+	pop	rdi
 	ret
 end C_primitive
 
