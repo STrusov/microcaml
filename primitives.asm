@@ -83,10 +83,14 @@ C_primitive caml_array_concat
 end C_primitive
 
 
-
+; Возвращает элемент массива обычного или вещественных чисел.
+; RDI - адрес массива
+; RSI - индекс элемента (OCaml value)
 C_primitive caml_array_get
-
+	cmp	byte[rdi - sizeof value], Double_array_tag
+	jz	caml_array_get_float
 end C_primitive
+; продолжает выполнение.
 
 
 ; Возвращает значение элемента массива.
@@ -110,9 +114,22 @@ C_primitive_stub
 end C_primitive
 
 
-
+; Возвращает элемент массива вещественных чисел.
+; RDI - адрес массива
+; RSI - индекс элемента (OCaml value)
 C_primitive caml_array_get_float
-
+	Long_val rsi
+	js	caml_array_get_addr.bound_error	; caml_array_bound_error
+	mov	rax, Val_header[rdi - sizeof value]
+	from_wosize rax
+	cmp	rax, rsi
+	jc	caml_array_get_addr.bound_error
+	mov	Val_header[alloc_small_ptr_backup], 1 wosize or Double_tag
+	mov	rax, [rdi + rsi * sizeof value]
+	mov	Val_header[alloc_small_ptr_backup + sizeof value], rax
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
 end C_primitive
 
 
