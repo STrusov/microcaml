@@ -77,12 +77,6 @@ C_primitive caml_array_blit
 end C_primitive
 
 
-
-C_primitive caml_array_concat
-
-end C_primitive
-
-
 ; Возвращает элемент массива обычного или вещественных чисел.
 ; RDI - адрес массива
 ; RSI - индекс элемента (OCaml value)
@@ -151,12 +145,13 @@ C_primitive caml_array_set_float
 end C_primitive
 
 
+; Следующие 3 функции в оригинале вызывает универсальную caml_array_gather.
+
 ; Возвращает (сылку на) массив, созданный из подмножества элементов исходного.
 ; RDI - адрес исходного массива;
 ; RSI - номер (от 0) первого элемента подмножества.
 ; RDX - количество элементов подмножества.
 C_primitive caml_array_sub
-;	В оригинале вызывает универсальную функцию.
 ;	Создаём заголовок из тега исходного массива + размер нового.
 	movzx	eax, byte[rdi - sizeof value]
 	Int_val	rdx
@@ -206,6 +201,42 @@ rep	movs	qword[rdi], [rsi]
 	neg	rax
 	lea	rax, [rdi + rax * sizeof value]
 	mov	alloc_small_ptr_backup, rdi
+	ret
+end C_primitive
+
+
+; Возвращает объединённый массив.
+; RDI - список подлежащих объединению массивов.
+C_primitive caml_array_concat
+	cmp	rdi, Val_int(0)
+	jz	.atom0
+;	Счётчик общего числа элементов в результирующем массиве.
+;	В случае массива из 0 элементов вернём Atom(0).
+	zero	rdx
+;	Начнём копировать элементы, а заголовок создадим в завершении.
+	mov	rax, rdi
+	lea	rdi, [alloc_small_ptr_backup + sizeof value]
+;	0-е поле элемента списка сордержит ссылку на массив.
+.cp_ar:	mov	rsi, [rax + 0 * sizeof value]
+	mov	rcx, Val_header[rsi - sizeof value]
+;	Суммируем длины и копируем тег.
+	and	rdx, not 0xff
+	add	rdx, rcx
+;	Копируем очередной массив.
+	from_wosize rcx
+rep	movs	qword[rdi], [rsi]
+;	1-е поле элемента списка содержит ссылку на следующий элемент,
+;	либо Val_int(0).
+	mov	rax, [rax + 1 * sizeof value]
+	cmp	rax, Val_int(0)
+	jnz	.cp_ar
+	test	rdx, not 0xff
+	jz	.atom0
+	mov	Val_header[alloc_small_ptr_backup], rdx
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	mov	alloc_small_ptr_backup, rdi
+	ret
+.atom0:	lea	rax, [Atom 0]
 	ret
 end C_primitive
 
