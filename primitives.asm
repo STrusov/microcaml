@@ -17,7 +17,7 @@ end macro
 macro caml_invalid_argument msg
 	lea	rdi, [.m]
 	puts	rdi
-	mov	edi, EINVAL
+	mov	eax, EINVAL
 	jmp	sys_exit
 .m	db	msg, 10, 0
 end macro
@@ -101,10 +101,7 @@ C_primitive_stub
 	mov	rax, [rdi + rsi * sizeof value]
 	ret
 .bound_error:
-	puts	.error_out_of_bounds
-	mov	eax, -EINVAL
-	jmp	sys_exit
-.error_out_of_bounds	db 'Выход за пределы массива', 10, 0
+	caml_invalid_argument	'Выход за пределы массива'
 end C_primitive
 
 
