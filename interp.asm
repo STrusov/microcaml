@@ -1186,7 +1186,13 @@ end Instruct
 
 
 Instruct	EQ
-
+	pop	rax
+	cmp	accu, rax
+	mov	rax, Val_true
+	mov	accu, Val_false
+	cmove	accu, rax
+	Instruct_next
+Instruct_size
 end Instruct
 
 
