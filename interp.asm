@@ -1032,12 +1032,16 @@ end Instruct
 
 
 Instruct	CONST2
-
+	mov	accu, Val_int 2
+	Instruct_next
+Instruct_size
 end Instruct
 
 
 Instruct	CONST3
-
+	mov	accu, Val_int 3
+	Instruct_next
+Instruct_size
 end Instruct
 
 
