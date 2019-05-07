@@ -152,9 +152,12 @@ end C_primitive
 ; RSI - номер (от 0) первого элемента подмножества.
 ; RDX - количество элементов подмножества.
 C_primitive caml_array_sub
+	Int_val	rdx
+;	В случае итогового массива из 0 элементов возвращаем Atom(0)
+	lea	rax, [Atom 0]
+	jz	.exit
 ;	Создаём заголовок из тега исходного массива + размер нового.
 	movzx	eax, byte[rdi - sizeof value]
-	Int_val	rdx
 	mov	rcx, rdx
 	to_wosize rdx
 	or	rax, rdx
@@ -171,7 +174,7 @@ rep	movs	qword[rdi], [rsi]
 	lea	rax, [rdi + rax * sizeof value]
 	mov	alloc_small_ptr_backup, rdi
 	pop	rdi
-	ret
+.exit:	ret
 end C_primitive
 
 
@@ -184,6 +187,9 @@ C_primitive caml_array_append
 	mov	rcx, Val_header[rdi - sizeof value]
 	and	rdx, not 0xff
 	lea	rax, [rcx + rdx]
+;	В случае итогового массива из 0 элементов возвращаем Atom(0)
+	test	rax, not 0xff
+	jz	.atom0
 	mov	Val_header[alloc_small_ptr_backup], rax
 ;	Сохраняем ссылки на массивы на случай сборки мусора.
 	push	rsi rdi
@@ -201,6 +207,8 @@ rep	movs	qword[rdi], [rsi]
 	neg	rax
 	lea	rax, [rdi + rax * sizeof value]
 	mov	alloc_small_ptr_backup, rdi
+	ret
+.atom0:	lea	rax, [Atom 0]
 	ret
 end C_primitive
 
