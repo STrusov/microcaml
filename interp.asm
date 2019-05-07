@@ -354,7 +354,15 @@ end Instruct
 
 
 Instruct	PUSH_RETADDR
-
+	lea	rax, [extra_args * 2 + 1]
+	push	rax
+	push	env
+	movsxd	rax, [opcode.1]
+	lea	rax, [opcode.1 + rax * sizeof opcode]
+	push	rax
+	next_opcode
+	Instruct_next
+Instruct_size
 end Instruct
 
 
