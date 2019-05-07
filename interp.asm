@@ -26,6 +26,7 @@ accub	equ dl
 
 env		equ r13
 extra_args	equ r12
+extra_args_d	equ r12d
 
 caml_trapsp	equ rbp
 
@@ -367,7 +368,11 @@ end Instruct
 
 
 Instruct	APPLY
-
+	mov	extra_args_d, [opcode.1]
+	dec	extra_args_d
+	mov	vm_pc, [accu]
+	mov	env, accu
+	Instruct_next
 end Instruct
 
 
