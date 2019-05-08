@@ -675,6 +675,7 @@ val2	equ rsi
 		.val2	dq ?
 		.count	dq ?
 	end virtual
+	push	rbp
 	mov	rbp, rsp
 .compare:
 ;	cmp	val1, val2
@@ -756,6 +757,7 @@ val2	equ rsi
 	jmp	.compare
 .equal:	zero	eax
 .exit:	mov	rsp, rbp
+	pop	rbp
 	ret
 ;	Сравниваем строки посимвольно.
 .string_tag:;int3
