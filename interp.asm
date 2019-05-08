@@ -915,9 +915,11 @@ end Instruct
 
 Instruct	PUSHTRAP
 	movsxd	rax, [opcode.1]
-	add	rax, vm_pc
+	lea	rax, [vm_pc + rax * sizeof opcode]
 	next_opcode
-	push	extra_args
+	mov	rcx, extra_args
+	Val_int rcx
+	push	rcx
 	push	env
 	push	caml_trapsp
 	push	rax
@@ -938,7 +940,14 @@ end Instruct
 
 
 Instruct	RAISE
-
+	mov	rsp, caml_trapsp
+	pop	vm_pc
+	pop	caml_trapsp
+	pop	env
+	pop	extra_args
+	Int_val	extra_args
+	Instruct_next
+Instruct_size
 end Instruct
 
 
