@@ -503,6 +503,8 @@ end proc
 ; RDI - количество байт для строки в формате OCaml.
 C_primitive caml_create_bytes
 	Long_val	rdi
+	mov	rcx, Max_wosize * sizeof value
+	cmp	rdi, rcx
 	jbe	caml_alloc_string
 	caml_invalid_argument "Bytes.create"
 end C_primitive
