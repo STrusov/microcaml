@@ -72,9 +72,38 @@ C_primitive caml_alloc_float_array
 end C_primitive
 
 
-
+; Копирует элементы из первого массива во второй.
+; RDI - источник;
+; RSI - начальный индекс источника;
+; RDX - приёмник;
+; RCX - начальный индекс приёмника;
+; R8 - количество элементов.
 C_primitive caml_array_blit
-
+	Int_val rsi
+	Int_val rcx
+	Int_val r8
+	lea	rsi, [rdi + rsi * sizeof value]
+	lea	rdi, [rdx + rcx * sizeof value]
+	mov	rcx, r8
+;	Если приёмник попадает между началом и концом источника,
+;	необходимо копировать от старших адресов к младшим.
+;	rdi - rsi < размер (в байтах);
+	shl	r8, 3	; * 8
+	mov	rax, rdi
+	sub	rax, rsi
+	cmp	rax, r8
+	jc	.topdown
+rep	movs	qword[rdi], [rsi]
+	mov	eax, Val_unit
+	ret
+.topdown:
+	lea	rsi, [rsi + (rcx - 1) * sizeof value]
+	lea	rdi, [rdi + (rcx - 1) * sizeof value]
+	std
+rep	movs	qword[rdi], [rsi]
+	cld
+	mov	eax, Val_unit
+	ret
 end C_primitive
 
 
