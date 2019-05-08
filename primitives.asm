@@ -2095,13 +2095,7 @@ end C_primitive
 
 ; RDI - адрес строки (за заголовком)
 C_primitive caml_ml_string_length
-	mov	rax, [rdi - sizeof value]
-;	from_wosize	rax
-	shr	rax, wosize_shift - sizeof_value_log2
-	and	rax, not (sizeof value - 1)
-	dec	rax
-	movzx	rcx, byte[rdi + rax]
-	sub	rax, rcx
+	caml_string_length rdi, rax, rcx
 	Val_int	rax
 	retn
 end C_primitive
