@@ -72,6 +72,7 @@ C_primitive caml_alloc_float_array
 end C_primitive
 
 
+
 C_primitive caml_array_blit
 
 end C_primitive
@@ -617,21 +618,52 @@ C_primitive caml_eq_float
 end C_primitive
 
 
+macro caml_string_length str_reg, result_reg, tmp_reg
+	mov	result_reg, [str_reg - sizeof value]
+;	from_wosize	result_reg
+	shr	result_reg, wosize_shift - sizeof_value_log2
+	and	result_reg, not (sizeof value - 1)
+	dec	result_reg
+	movzx	tmp_reg, byte[str_reg + result_reg]
+	sub	result_reg, tmp_reg
+end macro
+
+
 ; Возвращает:
 ; > 0	- 1е > 2го;
 ; 0	- значения равны;
 ; < 0	- 1е < 2го;
-UNORDERED := 1 shl (8 * sizeof value - 1)
+UNORDERED := 1 shl (8 * sizeof value - 1)	; в случае QNaN
 ; RDI - 1-е значение;
 ; RSI - 2-e значение.
 ; RDX - --
 proc compare_val
 val1	equ rdi
 val2	equ rsi
-	cmp	val1, val2
-	jz	.equal
+	virtual at rsp
+	label 	.compare_stack:8*3
+		.val1	dq ?
+		.val2	dq ?
+		.count	dq ?
+	end virtual
+	mov	rbp, rsp
+.compare:
+;	cmp	val1, val2
+;	jz	.equal
 	test	val1, 1
-	jnz	.val1_is_long
+	jz	.val1_is_ptr
+;	Если 2-е равно 1-му числу, продолжаем сравнение элементов.
+	cmp	val1, val2
+	jz	.next_item
+	test	val2, 1
+	jz	.val2_is_ptr
+;	Оба - числа и не равны - возвращаем разность как результат сравнения.
+	mov	rax, val1
+	sub	rax, val2
+	jmp	.exit
+.val2_is_ptr:
+	int3
+.val1_is_ptr:
 	test	val2, 1
 	jnz	.val2_is_long
 ;	Оба значения - указатели. Проверяем, являются ли они ссылками на блоки.
@@ -647,37 +679,107 @@ val2	equ rsi
 	movzx	eax, byte[val1 - sizeof value]
 ;	cmp	al, Forward_tag
 ;	jz	.forward_tag
-	movzx	ecx, byte[val2 - sizeof value]
+	movzx	edx, byte[val2 - sizeof value]
 ;	cmp	cl, Forward_tag
 ;	jz	.forward_tag
-	sub	eax, ecx
+	sub	eax, edx
 	jnz	.exit
 ;	cmp	al, Abstract_tag
 ;	je	.abstract_tag
 ;	jb	.tags
+	cmp	dl, String_tag		; 252
+	jz	.string_tag
+	cmp	dl, Double_array_tag	; 254
+	jz	.double_array_tag
 ;	Теги равны - сравниваем размеры
+.default_tag:
+	mov	rax, Val_header[val1 - sizeof value]
+	mov	rdx, Val_header[val2 - sizeof value]
+	sub	rax, rdx
+	jnz	.exit
+	from_wosize rdx
+	jz	.next_item
+	dec	rdx
+	jz	.cmp0
+;	Откладываем сравнение остальных элементов на следующую итерацию.
+	mov	[.val1  - sizeof .compare_stack], val1
+	mov	[.val2  - sizeof .compare_stack], val2
+	mov	[.count - sizeof .compare_stack], rdx
+	lea	rsp, [rsp - sizeof .compare_stack]
+.cmp0:	; Продолжаем сравнение с 0ми элементами.
+	mov	val1, [val1]
+	mov	val2, [val2]
+	jmp	.compare
+.next_item:
+	cmp	rsp, rbp
+	jz	.equal
+	mov	val1, [.val1]
+	mov	val2, [.val2]
+	lea	val1, [val1 + sizeof value]
+	lea	val2, [val2 + sizeof value]
+	mov	[.val1], val1
+	mov	[.val2], val2
+	mov	val1, [val1]
+	mov	val2, [val2]
+	dec	[.count]
+	jnz	.compare
+	lea	rsp, [rsp + sizeof .compare_stack]
+	jmp	.compare
+.equal:	zero	eax
+.exit:	mov	rsp, rbp
+	ret
+;	Сравниваем строки посимвольно.
+.string_tag:;int3
+;	Если одна из строк является подстрокой другой, сравниваем длины.
+	caml_string_length	val1, rdx, rax
+	caml_string_length	val2, rcx, rax
+	cmp	rdx, rcx
+	cmovc	rcx, rdx
+	sub	rdx, rcx
+.str_c:	mov	al, [val1]
+	sub	al, [val2]
+	jnz	.str_diff
+	dec	rcx
+	jnz	.str_c
+	mov	rax, rdx
+;	Если длины строк совпадают, продолжаем сравнение оставшихся элементов.
+	test	rax, rax
+	jz	.next_item
+	jmp	.exit
+.str_diff:
+	movsx	eax, al
+	jmp	.exit
+;	Сравниваем массивы вещественных чисел.
+.double_array_tag:
+;	Сначала размеры,
 	mov	rax, Val_header[val1 - sizeof value]
 	mov	rcx, Val_header[val2 - sizeof value]
 	sub	rax, rcx
 	jnz	.exit
+;	потом поэлементно.
 	from_wosize rcx
-;	и значения.
-.1:	mov	rax, [val1]
-	sub	rax, [val2]
-	jnz	.exit
+	jz	.next_item
+.da_c:	movsd	xmm0, [val1]
+	ucomisd	xmm0, [val2]
+;	UNORDERED:	ZF,PF,CF <- 111;
+;	GREATER_THAN:	ZF,PF,CF <- 000;
+;	LESS_THAN:	ZF,PF,CF <- 001;
+;	EQUAL:		ZF,PF,CF <- 100;
+	mov	rax, UNORDERED
+	jp	.exit
+	mov	eax, 1
+	jnbe	.exit
+	mov	eax, -1
+	jc	.exit
 	lea	val1, [val1 + sizeof value]
 	lea	val2, [val2 + sizeof value]
 	dec	rcx
-	jnz	.1
+	jnz	.da_c
+	jmp	.next_item
 
-.equal:	zero	eax
-.exit:	ret
-
-.tags:
 .abstract_tag:
 .forward_tag:
 .arbitrary_ptr:
-.val1_is_long:
 .val2_is_long:
 int3
 ud2
@@ -698,6 +800,18 @@ C_primitive_stub
 	ret
 end C_primitive
 
+
+; RDI - 1-е значение;
+; RSI - 2-e значение.
+C_primitive caml_notequal
+C_primitive_stub
+	call	compare_val
+	test	rax, rax
+	mov	eax, Val_false
+	mov	ecx, Val_true
+	cmovne	eax, ecx
+	ret
+end C_primitive
 
 
 C_primitive caml_exp_float
@@ -2125,18 +2239,6 @@ C_primitive caml_new_lex_engine
 
 end C_primitive
 
-
-; RDI - 1-е значение;
-; RSI - 2-e значение.
-C_primitive caml_notequal
-C_primitive_stub
-	call	compare_val
-	test	rax, rax
-	mov	eax, Val_false
-	mov	ecx, Val_true
-	cmovne	eax, ecx
-	ret
-end C_primitive
 
 
 C_primitive caml_obj_add_offset
