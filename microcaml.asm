@@ -588,13 +588,6 @@ include 'primitives.asm'
 ;segment readable
 section '.rodata'
 
-; caml_init_atom_table() добавляет таблицу атомов в таблицу страниц!
-;CAMLexport header_t caml_atom_table[256];
-label caml_atom_table: qword
-repeat 256
-	dq 0 wosize + 0 + % - 1
-end repeat
-
 ;struct custom_operations {
 ;  char *identifier;
 ;  void (*finalize)(value v);
