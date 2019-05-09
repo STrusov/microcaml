@@ -142,6 +142,15 @@ end macro
 _start:
 main:
 .stack_size	:= sizeof .st
+;	Допустим 1 аргумент - имя файла байт-кода.
+	mov	rcx, [rsp]	; argc
+	cmp	ecx, 2
+	jz	.1arg
+	puts	error_about
+	mov	edi, -EINVAL
+	jmp	sys_exit
+.1arg:	mov	rdi, [rsp + 16]	; argv
+	mov	[bytecode_filename], rdi
 	sub	rsp, .stack_size
 
 ;	Арифметический сопроцессор настроен как требует IEEE
@@ -159,8 +168,6 @@ main:
 
 ;	caml_parse_ocamlrunparam
 
-;	Для отладки используем фиксированный файл
-	lea	rdi, [bytecode_filename]	; 1й
 	mov	esi, O_RDONLY			; 2й
 	sys.open
 	test	eax, eax
@@ -569,13 +576,7 @@ restore dest
 	
 	interpreter_init
 	Instruct_next
-
-exit_with_banner:
-	puts	msg
-
-; Завершение
-	xor	edi, edi
-	jmp	sys_exit
+;	ud2
 
 invalid_datasection_sig:
 	puts	error_datasection_sig
@@ -622,8 +623,10 @@ include 'primitives.inc'
 
 bytecode_sect_names	db sect_names
 
-error_bytecode_open	db 'Ошибка открытия файла '	; нет завершающего 0
-include 'bytecode_filename.inc'
+error_about db 'uCaml x64 v0.1', 10
+	db 'Укажите имя файла в качестве аргумента.', 10, 0
+
+error_bytecode_open	db 'Ошибка открытия файла', 10, 0
 error_bytecode_map	db 'Ошибка чтения файла', 10, 0
 error_bytecode_invalid	db ' Невалидный формат', 10, 0
 error_bytecode_dlls	db 'Примитивы во внешних библиотеках пока не поддерживаются', 10, 0
@@ -632,11 +635,11 @@ error_unsupported_data	db ' Неподдерживаемый блок в сек�
 error_sigsegv_nohandler	db 'Не установлен обработчик '
 error_sigsegv_handler	db 'SIGSEGV', 10, 0
 
-msg db 'uCaml x64',0xA, 0
-
 
 ;segment readable writeable
 section '.data' writeable align 4096
+
+bytecode_filename	dq ?
 
 oo_last_id	value	Val_int_0
 

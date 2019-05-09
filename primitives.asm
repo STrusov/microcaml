@@ -2689,7 +2689,7 @@ C_primitive_stub
 ;	Вычисляем длину строки и копируем её на кучу.
 	zero	edi
 	zero	eax
-	lea	rsi, [bytecode_filename]
+	mov	rsi, [bytecode_filename]
 .cnt:	cmp	[rsi + rdi], al
 	jz	.len
 	inc	edi
