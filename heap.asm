@@ -131,7 +131,7 @@ rsi14_ptr equ rcx
 	mov	uncommited, [.sinf.si_addr]
 	and	uncommited, not (PAGE_SIZE-1)
 ;	SIGSEGV валиден при обращении через один из регистров: r14 или rdi.
-	lea	rsi14_ptr, [.ctx.uc_mcontext.rsi]
+	lea	rsi14_ptr, [.ctx.uc_mcontext.rdi]
 	mov	rax, [rsi14_ptr]
 	and	rax, not (PAGE_SIZE-1)
 	cmp	rax, uncommited
@@ -172,13 +172,13 @@ rsi14_ptr equ rcx
 ;	Если он равен uncommited, значит освободить место в куче не удалось
 ;	и следует выделить новые страницы.
 	cmp	alloc_small_ptr, uncommited
+	pop	rsi14_ptr
 	jae	.add_page
 ;	Если удалось освободить место, значит alloc_small_ptr изменился.
 ;	Следует передать его в прерванный поток через структуру ucontext.
 ;	Учтём, что обращение к памяти может быть по смещению
 ;	относительно значения регистра.
 	sub	alloc_small_ptr, uncommited
-	pop	rsi14_ptr
 	add	[rsi14_ptr], alloc_small_ptr
 	ret
 restore rsi14_ptr
@@ -272,9 +272,11 @@ s_index	equ rcx
 	mov	rsi, .mark_mask	; b_index
 b_base	equ rax
 b_index	equ rsi
-	test	rsi, [b_base - sizeof value]	;; ?
+;	Если текущая ссылка адресует уже промаркированный блок, значит
+;	обработка блока выполнена ранее. Достаточно учесть текущую ссылку.
+	test	rsi, [b_base - sizeof value]
 	mov	b_index, [b_base - sizeof value]
-	jnz	.already_marked			;; ?
+	jnz	.already_marked
 	or	[b_base - sizeof value], rdx
 .check_block:
 ;	Проверяем тег, подлежит ли блок сканированию.
@@ -328,6 +330,17 @@ b_index	equ rsi
 ;	Выходим из рекурсивной обработки, уже выполненной для найденного блока.
 	pop	rsi rax		; b_index b_base
 	jmp	.search_block
+.already_marked:
+;	rsi (b_index) содержит заголовок адресуемого блока (с прежним маркером).
+;	Перенесём его по адресу текущей ссылки.
+	mov	[s_base + s_index * sizeof value], rsi
+;	Маркер заменяем новым из rdx.
+	shl	rsi, 64 - ..Mark_shift
+	shr	rsi, 64 - ..Mark_shift
+	or	rsi, rdx
+	mov	[b_base - sizeof value], rsi
+	jmp	.search_stack
+
 restore b_base
 restore b_size
 restore b_index
@@ -393,8 +406,6 @@ restore s_size
 restore gc_end
 	ret
 
-.already_marked:
-int3
 .empty_block:
 int3
 nop
