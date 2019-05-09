@@ -1,12 +1,17 @@
+..C_PRIM_COUNT = 0
+..C_PRIM_IMPLEMENTED = 0
 
 macro C_primitive name
 name:
 .C_primitive_name equ `name
+..C_PRIM_COUNT = ..C_PRIM_COUNT + 1
 end macro
 
 macro end?.C_primitive!
 	if $ = .
 		int3
+	else
+		..C_PRIM_IMPLEMENTED = ..C_PRIM_IMPLEMENTED + 1
 	end if
 end macro
 
@@ -2890,4 +2895,6 @@ C_primitive caml_weak_set
 
 end C_primitive
 
-display_num_ln 'Размер C-примитивов: ', $-C_primitive_first
+display_num "Реализовано C-примитивов (без учёта инедтичных): ", ..C_PRIM_IMPLEMENTED
+display_num_ln " из ", ..C_PRIM_COUNT
+display_num_ln "Занимают байт (включая int3 заглушки): ", $-C_primitive_first
