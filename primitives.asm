@@ -495,8 +495,7 @@ proc caml_alloc_string
 	or	rdi, String_tag
 	mov	Val_header[alloc_small_ptr_backup], rdi
 ;	Завершающий байт = размер блока в байтах - 1 - длина строки
-	bswap	rdx
-	mov	[alloc_small_ptr_backup + rcx * sizeof value], rdx
+	mov	[alloc_small_ptr_backup + (1 + rcx) * sizeof value - 1], dl
 ;	Предыдущая команда может изменить содержимое alloc_small_ptr_backup,
 ;	потому порядок выполнения важен.
 	lea	rax, [alloc_small_ptr_backup + sizeof value]
