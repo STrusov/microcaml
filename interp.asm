@@ -874,11 +874,10 @@ end Instruct
 
 Instruct	BRANCHIF
 	cmp	accu, Val_false
-	jnz	.br
+	movsxd	rax, [opcode.1]
+	lea	rax, [opcode.1 + rax * sizeof opcode]
 	next_opcode
-	Instruct_next
-.br:	movsxd	rax, [opcode.1]
-	lea	vm_pc, [opcode.1 + rax * sizeof opcode]
+	cmovnz	vm_pc, rax
 	Instruct_next
 Instruct_size
 end Instruct
@@ -886,11 +885,10 @@ end Instruct
 
 Instruct	BRANCHIFNOT
 	cmp	accu, Val_false
-	jz	.br
+	movsxd	rax, [opcode.1]
+	lea	rax, [opcode.1 + rax * sizeof opcode]
 	next_opcode
-	Instruct_next
-.br:	movsxd	rax, [opcode.1]
-	lea	vm_pc, [opcode.1 + rax * sizeof opcode]
+	cmovz	vm_pc, rax
 	Instruct_next
 Instruct_size
 end Instruct
