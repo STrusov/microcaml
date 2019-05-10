@@ -340,7 +340,10 @@ end Instruct
 
 
 Instruct	PUSHENVACC3
-
+	push	accu
+	mov	accu, [env + 3 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
