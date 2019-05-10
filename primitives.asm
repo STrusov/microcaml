@@ -942,7 +942,7 @@ end C_primitive
 ;CAMLprim value caml_fresh_oo_id (value v)
 ; RDI - value - игнорируется
 C_primitive caml_fresh_oo_id
-	mov	accu, [oo_last_id]
+	mov	rax, [oo_last_id]
 	add	[oo_last_id], 2
 	ret
 end C_primitive
