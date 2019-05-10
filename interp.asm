@@ -1209,23 +1209,24 @@ Instruct	ASRINT
 end Instruct
 
 
-Instruct	EQ
+macro INTcc condition
 	pop	rax
 	cmp	accu, rax
-	mov	rax, Val_true
-	mov	accu, Val_false
-	cmove	accu, rax
+	mov	eax, Val_true
+	mov	accud, Val_false
+	cmov#condition	accud, eax
+end macro
+
+
+Instruct	EQ
+	INTcc	E
 	Instruct_next
 Instruct_size
 end Instruct
 
 
 Instruct	NEQ
-	pop	rax
-	cmp	accu, rax
-	setne	accub
-	Val_int	accu
-	and	accu,3
+	INTcc	NE
 	Instruct_next
 Instruct_size
 end Instruct
@@ -1244,9 +1245,9 @@ end Instruct
 Instruct	GTINT
 	pop	rax
 	cmp	accu, rax
-	setg	accub
-	Val_int	accu
-	and	accu,3
+	mov	eax, Val_true
+	mov	accud, Val_false
+	cmovg	accud, eax
 	Instruct_next
 Instruct_size
 end Instruct
@@ -1334,15 +1335,13 @@ Instruct	ULTINT
 
 end Instruct
 
-; >=
-; (accu >= sp*++) + 1
+
 Instruct	UGEINT
-;	mov	eax, [opcode.1]
-;	next_opcode
-	
-;	jmp	execute_instruction
-;Instruct_size
+
 end Instruct
+
+
+purge INTcc
 
 
 Instruct	BULTINT
