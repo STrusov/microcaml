@@ -220,7 +220,7 @@ main:
 .invalid_bytecode:
 	puts	error_bytecode_invalid
 .invalid_bytecode_msg:
-	mov	edi, ENOEXEC
+	mov	edi, -ENOEXEC
 	jmp	sys_exit
 .dlls_not_supported_yet:
 	puts	error_bytecode_dlls
@@ -421,7 +421,7 @@ CODE_INT8		:= 0x0
 ;	Пока поддержаны не все блоки данных.
 	call	stdout_hex_byte
 	puts	error_unsupported_data
-	mov	edi, EINVAL
+	mov	edi, -EINVAL
 	jmp	sys_exit
 
 .small_int:
@@ -580,7 +580,7 @@ restore dest
 
 invalid_datasection_sig:
 	puts	error_datasection_sig
-	mov	edi, EINVAL
+	mov	edi, -EINVAL
 	jmp	sys_exit
 
 include 'primitives.asm'

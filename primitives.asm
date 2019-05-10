@@ -22,7 +22,7 @@ end macro
 macro caml_invalid_argument msg
 	lea	rdi, [.m]
 	puts	rdi
-	mov	eax, EINVAL
+	mov	eax, -EINVAL
 	jmp	sys_exit
 .m	db	msg, 10, 0
 end macro
@@ -2665,6 +2665,14 @@ end C_primitive
 ; Произвольный код может быть возвращён вызовом sys_exit библиотеки Pervasives.
 C_primitive caml_sys_exit
 	Int_val	edi	; 1й
+; Данная точка входа используется для завершения процесса в случаях,
+; когда системные вызовы возвращают ошибку. Такие коды ошибок отрицательны.
+; Ядро преобразует код по формуле (error_code & 0xff) << 8;
+; см. linux/kernal/exit.c SYSCALL_DEFINE1(exit, int, error_code)
+; Если в caml_sys_exit передаются небольшие положительные числа,
+; пользовательские коды завершения не пересекаются и отличаются от системных.
+; Пока не найдено лучшее решение (sysexits.h ?), по-видимому, оптимально
+; возвращать отрицательные коды из errno.inc в качестве ошибок интерпретатора.
 sys_exit:
 	sys.exit
 	ud2
