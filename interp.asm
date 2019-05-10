@@ -1058,7 +1058,7 @@ end Instruct
 
 
 Instruct	CONSTINT
-	mov	accud, [opcode]
+	movsxd	accu, [opcode]
 	lea	accu, [Val_int accu]
 	next_opcode
 	Instruct_next
@@ -1101,7 +1101,7 @@ end Instruct
 Instruct	PUSHCONSTINT
 	push	accu
 ;Instruct	CONSTINT
-	mov	accud, [opcode]
+	movsxd	accu, [opcode]
 	lea	accu, [Val_int accu]
 	next_opcode
 	Instruct_next
