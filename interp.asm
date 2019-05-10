@@ -1294,7 +1294,9 @@ end macro
 
 
 Instruct	BEQ
-
+	BccINT	E
+	Instruct_next
+Instruct_size
 end Instruct
 
 
