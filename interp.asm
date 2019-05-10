@@ -1282,6 +1282,16 @@ Instruct	GETMETHOD
 end Instruct
 
 
+macro BccINT condition
+	movsxd	rax, [opcode.1]
+	Long_val accu
+	cmp	rax, accu
+	movsxd	rax, [opcode.2]
+	lea	rax, [opcode.2 + rax * sizeof opcode]
+	next_opcode 2
+	cmov#condition	vm_pc, rax
+end macro
+
 
 Instruct	BEQ
 
@@ -1289,14 +1299,7 @@ end Instruct
 
 
 Instruct	BNEQ
-	movsxd	rax, [opcode.1]
-	Long_val accu
-	cmp	rax, accu
-	jnz	.br
-	next_opcode 2
-	Instruct_next
-.br:	movsxd	rax, [opcode.2]
-	lea	vm_pc, [opcode.2 + rax * sizeof opcode]
+	BccINT	NE
 	Instruct_next
 Instruct_size
 end Instruct
@@ -1313,14 +1316,7 @@ end Instruct
 
 
 Instruct	BGTINT
-	movsxd	rax, [opcode.1]
-	Long_val accu
-	cmp	rax, accu
-	jg	.br
-	next_opcode 2
-	Instruct_next
-.br:	movsxd	rax, [opcode.2]
-	lea	vm_pc, [opcode.2 + rax * sizeof opcode]
+	BccINT	G
 	Instruct_next
 Instruct_size
 end Instruct
@@ -1352,6 +1348,9 @@ end Instruct
 Instruct	BUGEINT
 
 end Instruct
+
+
+purge BccINT
 
 
 Instruct	GETPUBMET
