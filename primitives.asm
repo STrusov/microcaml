@@ -931,10 +931,53 @@ C_primitive caml_format_float
 end C_primitive
 
 
-; RDI - формат
-; RSI - целое
+; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
+; RSI - целое (в OCaml-представлении).
 C_primitive caml_format_int
-
+;	в pervasives.ml встречается только %d (см. string_of_int)
+	cmp	word[rdi], '%d'
+	jnz	.fmt
+	zero	ecx
+;	Обнуляем заголовок. Скоректируем его, когда строка будет готова.
+	mov	[alloc_small_ptr_backup], rcx
+	Int_val rsi
+	jns	.pos
+	neg	rsi
+	mov	byte[alloc_small_ptr_backup + rcx + sizeof value], '-'
+	inc	ecx
+.pos:	mov	edi, ecx	; позиция первого символа числа нажна в .rev:
+;	Делим на 10, умножая на магическое число.
+.@:	mov	rax, rsi
+	mov	rdx, 0xCCCCCCCCCCCCCCCD
+	mul	rdx
+	shr	rdx, 3		; частное
+	mov	rax, rsi
+	mov	rsi, rdx
+	lea	rdx, [rdx * 4 + rdx]
+	sub	rax, rdx
+	sub	rax, rdx	; остаток
+;	Сохраняем остаток в виде символа.
+	add	al ,'0'
+	mov	[alloc_small_ptr_backup + rcx + sizeof value], al
+	inc	ecx
+	test	rsi, rsi
+	jnz	.@
+;	mov	byte[alloc_small_ptr_backup + rcx + sizeof value], 0
+	push	rcx
+;	Цифры числа расположены в обратноп порядке, переставляем.
+.rev:	dec	ecx
+	cmp	edi, ecx
+	jnc	.order
+	mov	al, [alloc_small_ptr_backup + rdi + sizeof value]
+	mov	dl, [alloc_small_ptr_backup + rcx + sizeof value]
+	mov	[alloc_small_ptr_backup + rcx + sizeof value], al
+	mov	[alloc_small_ptr_backup + rdi + sizeof value], dl
+	inc	edi
+	jmp	.rev
+.order:	pop	rdi	; размер строки
+	jmp	caml_alloc_string
+.fmt:
+int3
 end C_primitive
 
 
