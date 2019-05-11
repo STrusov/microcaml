@@ -211,8 +211,8 @@ end C_primitive
 
 
 ; Возвращает ссылку на объединение 2-х массивов.
-; EDI - 1-й массив;
-; ESI - 2-й массив.
+; RDI - 1-й массив;
+; RSI - 2-й массив.
 C_primitive caml_array_append
 ;	Суммируем размеры массовов, а тег копируем из 1го (прибавляя его к 0).
 	mov	rdx, Val_header[rsi - sizeof value]
@@ -559,7 +559,7 @@ C_primitive caml_dynlink_open_lib
 end C_primitive
 
 
-; EDI - требуемы размер стека (OCaml value)
+; RDI - требуемый размер стека (OCaml value)
 ; Нужно ли заранее отображать страницы стека?
 C_primitive caml_ensure_stack_capacity
 	ret
@@ -1376,7 +1376,7 @@ C_primitive caml_int64_div
 end C_primitive
 
 
-; EDI - адрес источника для копирования в кучу числа с плавающей точкой.
+; RDI - адрес источника для копирования в кучу числа с плавающей точкой.
 C_primitive caml_int64_float_of_bits
 	mov	eax, 1 wosize or Double_tag
 	mov	[alloc_small_ptr_backup], rax
