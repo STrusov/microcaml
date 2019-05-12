@@ -1178,30 +1178,16 @@ Instruct	XORINT
 end Instruct
 
 
-; accu = (value)((((intnat) accu - 1) << Long_val(*sp++)) + 1); Next;
 Instruct	LSLINT
-;	dec	accu
-;	pop	rcx
-;	командой сдвига учитываются младшие 6 бит регистра cl
-;	cmp	rcx, 64
-;	ja	.zero
-;	shl	accu, cl
-;	inc	accu
-;	Instruct_next
-;Instruct_size
+
 end Instruct
 
-; accu = (value)((((uintnat) accu - 1) >> Long_val(*sp++)) | 1);
+
 Instruct	LSRINT
-;	dec	accu
 	pop	rcx
-;	командой сдвига учитываются младшие 6 бит регистра cl
-	cmp	rcx, 64
-	ja	.zero
-	shr	accu, cl	; CF = 1
-	or	accu, Val_int_0	; CF = 0
-	Instruct_next
-.zero:	mov	accu, Val_int_0
+	Int_val	rcx
+	shr	accu, cl
+	or	accu, Val_int_0
 	Instruct_next
 Instruct_size
 end Instruct
