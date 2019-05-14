@@ -802,7 +802,11 @@ end Instruct
 
 
 Instruct	GETFIELD
-
+	mov	eax, [opcode.1]
+	next_opcode
+	mov	accu, [accu + rax * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
