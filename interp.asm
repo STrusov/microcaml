@@ -1297,7 +1297,9 @@ end Instruct
 
 
 Instruct	BLTINT
-
+	BccINT	L
+	Instruct_next
+Instruct_size
 end Instruct
 
 
