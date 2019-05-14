@@ -1,6 +1,10 @@
 ..C_PRIM_COUNT = 0
 ..C_PRIM_IMPLEMENTED = 0
 
+; Использовать ли для всех типов данных универсальную процедуру
+; сравнения значений вместо специализированных.
+GENERIC_COMPARE = 1
+
 macro C_primitive name
 name:
 .C_primitive_name equ `name
@@ -444,12 +448,6 @@ end C_primitive
 
 
 
-C_primitive caml_compare
-
-end C_primitive
-
-
-
 C_primitive caml_convert_raw_backtrace
 
 end C_primitive
@@ -644,18 +642,6 @@ C_primitive caml_ephe_unset_key
 end C_primitive
 
 
-; RDI - адрес 1-го вещественного числа
-; RSI - адрес 2-го вещественного числа
-C_primitive caml_eq_float
-	movsd	xmm0, [rdi]
-	ucomisd xmm0, [rdi]
-	mov	rax, Val_false
-	mov	rcx, Val_true
-	cmove	rax, rcx
-	ret
-end C_primitive
-
-
 macro caml_string_length str_reg, result_reg, tmp_reg
 	mov	result_reg, [str_reg - sizeof value]
 ;	from_wosize	result_reg
@@ -667,18 +653,25 @@ macro caml_string_length str_reg, result_reg, tmp_reg
 end macro
 
 
-; Возвращает:
-; > 0	- 1е > 2го;
-; 0	- значения равны;
-; < 0	- 1е < 2го;
-UNORDERED := 1 shl (8 * sizeof value - 1)	; в случае QNaN
-; RDI - 1-е значение;
-; RSI - 2-e значение.
-; RDX - --
+; Возвращает результат сравнения произвольных значений:
+; Val_int 1	- 1е больше 2го;
+; Val_int 0	- значения равны;
+; Val_int -1	- 1е меньше 2го;
+;
+; RDI - 1-е;
+; RSI - 2-е.
+; R8  - передаётся в точку входа compare_val_r8.
+; 	Если не 0, то возвращается в случае NaN.
 ;
 ; Подпрограмма предполагает, что ссылки попадают в диапазон адресов кучи.
 ; В этой связи таблица атомов должна располагаться в куче.
-proc compare_val
+C_primitive caml_compare
+C_primitive_stub
+; В оригинальной реализации возвращает:
+; > 0 (1е > 2го), 0 (равны), < 0 (-1е < 2го) или UNORDERED (в случае QNaN).
+compare_val:
+	zero	r8
+compare_val_r8:
 val1	equ rdi
 val2	equ rsi
 	virtual at rsp
@@ -690,24 +683,29 @@ val2	equ rsi
 	push	rbp
 	mov	rbp, rsp
 .compare:
-;	cmp	val1, val2
-;	jz	.equal
-	test	val1, 1
-	jz	.val1_is_ptr
-;	Если 2-е равно 1-му числу, продолжаем сравнение элементов.
+	test	r8, r8
+	jnz	.total
+;	Такое сравнение не учитывает возможно различный результат при Custom_tag
 	cmp	val1, val2
 	jz	.next_item
+.total:	test	val1, 1
+	jz	.val1_is_ptr
 	test	val2, 1
 	jz	.val2_is_ptr
 ;	Оба - числа и не равны - возвращаем разность как результат сравнения.
 	mov	rax, val1
-	sub	rax, val2
-	jmp	.exit
+	cmp	rax, val2
+	jmp	.result
 .val2_is_ptr:
-	int3
+;	Здесь следует проверить Forward_tag и Custom_tag
+;	целое меньше блока
+	mov	rax, Val_int -1
+	jmp	.exit
 .val1_is_ptr:
+;	блок больше целого
+	mov	eax, Val_int 1
 	test	val2, 1
-	jnz	.val2_is_long
+	jnz	.exit
 ;	Оба значения - указатели. Проверяем, являются ли они ссылками на блоки.
 	cmp	val1, heap_small
 	jc	.arbitrary_ptr
@@ -722,23 +720,33 @@ val2	equ rsi
 ;	cmp	al, Forward_tag
 ;	jz	.forward_tag
 	movzx	edx, byte[val2 - sizeof value]
-;	cmp	cl, Forward_tag
+;	cmp	dl, Forward_tag
 ;	jz	.forward_tag
-	sub	eax, edx
-	jnz	.exit
-;	cmp	al, Abstract_tag
-;	je	.abstract_tag
-;	jb	.tags
+	cmp	eax, edx
+	jnz	.result
+	cmp	dl, Closure_tag		; 247
+	jb	.default_tag
+;	cmp	dl, Infix_tag		; 249
+;	cmp	dl, Abstract_tag	; 251
 	cmp	dl, String_tag		; 252
 	jz	.string_tag
+	cmp	dl, Double_tag		; 253
+	jz	.double_tag
 	cmp	dl, Double_array_tag	; 254
 	jz	.double_array_tag
+;	cmp	dl, Custom_tag		; 255
+	ja	.arbitrary_ptr
+ud2
+.arbitrary_ptr:
+	mov	rax, rdi
+	cmp	rax, rsi
+	jmp	.result
 ;	Теги равны - сравниваем размеры
 .default_tag:
 	mov	rax, Val_header[val1 - sizeof value]
 	mov	rdx, Val_header[val2 - sizeof value]
-	sub	rax, rdx
-	jnz	.exit
+	cmp	rax, rdx
+	jnz	.result
 	from_wosize rdx
 	jz	.next_item
 	dec	rdx
@@ -754,7 +762,8 @@ val2	equ rsi
 	jmp	.compare
 .next_item:
 	cmp	rsp, rbp
-	jz	.equal
+	mov	eax, Val_int 0
+	jz	.exit
 	mov	val1, [.val1]
 	mov	val2, [.val2]
 	lea	val1, [val1 + sizeof value]
@@ -767,31 +776,55 @@ val2	equ rsi
 	jnz	.compare
 	lea	rsp, [rsp + sizeof .compare_stack]
 	jmp	.compare
-.equal:	zero	eax
+.result:
+;	Флаги установлены командой сравнения перед переходом сюда.
+	mov	eax, Val_int 0
+	mov	ecx, Val_int 1
+	mov	rdx, Val_int -1
+	cmovnz	eax, ecx
+	cmovs	rax, rdx
 .exit:	mov	rsp, rbp
 	pop	rbp
 	ret
+.exit_nan:
+	test	r8, r8
+	cmovnz	rax, r8	; задаётся вызывающей стороной, что бы отличить NaN.
+	mov	rsp, rbp
+	pop	rbp
+	ret
 ;	Сравниваем строки посимвольно.
-.string_tag:;int3
+.string_tag:
 ;	Если одна из строк является подстрокой другой, сравниваем длины.
 	caml_string_length	val1, rdx, rax
 	caml_string_length	val2, rcx, rax
-	cmp	rdx, rcx
+	mov	rax, rdx
+	sub	rax, rcx
 	cmovc	rcx, rdx
-	sub	rdx, rcx
-.str_c:	mov	al, [val1]
-	sub	al, [val2]
-	jnz	.str_diff
+.str_c:	mov	dl, [val1]
+	cmp	dl, [val2]
+	jnz	.result
 	dec	rcx
 	jnz	.str_c
-	mov	rax, rdx
 ;	Если длины строк совпадают, продолжаем сравнение оставшихся элементов.
 	test	rax, rax
 	jz	.next_item
-	jmp	.exit
-.str_diff:
-	movsx	eax, al
-	jmp	.exit
+	jmp	.result
+;	Сравниваем вещественные числа.
+.double_tag:
+	movsd	xmm0, [val1]
+	ucomisd	xmm0, [val2]
+;	UNORDERED:	ZF,PF,CF <- 111;
+;	GREATER_THAN:	ZF,PF,CF <- 000;
+;	LESS_THAN:	ZF,PF,CF <- 001;
+;	EQUAL:		ZF,PF,CF <- 100;
+	mov	eax, Val_int 0
+	mov	ecx, Val_int 1
+	mov	rdx, Val_int -1
+	cmova	eax, ecx	; [val1] > [val2]
+	cmovc	rax, rdx	; [val1] < [val2]
+	jnz	.exit
+	jp	.exit_nan	; NaN
+	jmp	.next_item
 ;	Сравниваем массивы вещественных чисел.
 .double_array_tag:
 ;	Сначала размеры,
@@ -804,39 +837,29 @@ val2	equ rsi
 	jz	.next_item
 .da_c:	movsd	xmm0, [val1]
 	ucomisd	xmm0, [val2]
-;	UNORDERED:	ZF,PF,CF <- 111;
-;	GREATER_THAN:	ZF,PF,CF <- 000;
-;	LESS_THAN:	ZF,PF,CF <- 001;
-;	EQUAL:		ZF,PF,CF <- 100;
-	mov	rax, UNORDERED
-	jp	.exit
-	mov	eax, 1
-	jnbe	.exit
-	mov	eax, -1
-	jc	.exit
+;	см. double_tag
+	mov	eax, Val_int 1	; [val1] > [val2]
+	mov	rdx, Val_int -1
+	cmovc	rax, rdx	; [val1] < [val2]
+	jnz	.exit
+	jp	.exit_nan	; NaN
 	lea	val1, [val1 + sizeof value]
 	lea	val2, [val2 + sizeof value]
 	dec	rcx
 	jnz	.da_c
 	jmp	.next_item
-
-.abstract_tag:
-.forward_tag:
-.arbitrary_ptr:
-.val2_is_long:
-int3
-ud2
 restore	val2
 restore	val1
-end proc
+end C_primitive
 
 
+; Возвращает Val_true если аргументы равны.
 ; RDI - 1-е значение;
 ; RSI - 2-e значение.
 C_primitive caml_equal
-C_primitive_stub
-	call	compare_val
-	test	rax, rax
+	mov	r8, Val_int -1
+	call	compare_val_r8
+	Int_val	rax
 	mov	eax, Val_false
 	mov	ecx, Val_true
 	cmovz	eax, ecx
@@ -844,17 +867,144 @@ C_primitive_stub
 end C_primitive
 
 
+; Возвращает Val_true если аргументы не равны.
 ; RDI - 1-е значение;
 ; RSI - 2-e значение.
 C_primitive caml_notequal
-C_primitive_stub
-	call	compare_val
-	test	rax, rax
+	mov	r8, Val_int -1
+	call	compare_val_r8
+	Int_val	rax
 	mov	eax, Val_false
 	mov	ecx, Val_true
 	cmovne	eax, ecx
 	ret
 end C_primitive
+
+
+; Возвращает Val_true если первый аргумент больше либо равен второму.
+; RDI - 1-е значение;
+; RSI - 2-e значение.
+C_primitive caml_greaterequal
+	mov	r8, Val_int -1
+	call	compare_val_r8
+	Int_val	rax
+	mov	eax, Val_false
+	mov	ecx, Val_true
+	cmovns	eax, ecx
+	ret
+end C_primitive
+
+
+; Возвращает Val_true если первый аргумент больше второго.
+; RDI - 1-е значение;
+; RSI - 2-e значение.
+C_primitive caml_greaterthan
+	mov	r8, Val_int -1
+	call	compare_val_r8
+	cmp	rax, r8
+	mov	ecx, Val_false
+	cmove	eax, ecx
+	ret
+end C_primitive
+
+
+; Возвращает Val_true если первый аргумент меньше либо равен второму.
+; RDI - 1-е значение;
+; RSI - 2-e значение.
+C_primitive caml_lessequal
+	mov	r8, Val_int 1
+	call	compare_val_r8
+	cmp	rax, r8
+	mov	rax, r8		; Val_true
+	mov	ecx, Val_false
+	cmove	eax, ecx
+	ret
+end C_primitive
+
+
+; Возвращает Val_true если первый аргумент меньше второго.
+; RDI - 1-е значение;
+; RSI - 2-e значение.
+C_primitive caml_lessthan
+	mov	r8, Val_int 1
+	call	compare_val_r8
+	cmp	rax, r8
+	mov	rax, r8		; Val_true
+	mov	ecx, Val_false
+	cmovns	eax, ecx
+	ret
+end C_primitive
+
+
+; Возвращает результат сравнения 2-х вещественныхз чисел:
+; Val_int 1	- 1е > 2го;
+; Val_int 0	- числа равны;
+; Val_int -1	- 1е < 2го;
+; RDI - адрес 1-го числа;
+; RSI - адрес 2-го числа.
+if GENERIC_COMPARE
+caml_float_compare := compare_val
+else
+C_primitive caml_float_compare
+
+end C_primitive
+ end if
+
+
+; RDI - адрес 1-го вещественного числа
+; RSI - адрес 2-го вещественного числа
+if GENERIC_COMPARE
+caml_eq_float	:= caml_equal
+else
+C_primitive caml_eq_float
+
+end C_primitive
+end if
+
+
+if GENERIC_COMPARE
+caml_neq_float	:= caml_notequal
+else
+C_primitive caml_neq_float
+
+end C_primitive
+end if
+
+
+if GENERIC_COMPARE
+caml_ge_float	:= caml_greaterequal
+else
+C_primitive caml_ge_float
+
+end C_primitive
+end if
+
+
+if GENERIC_COMPARE
+caml_gt_float	:= caml_greaterthan
+else
+C_primitive caml_gt_float
+
+end C_primitive
+end if
+
+
+if GENERIC_COMPARE
+caml_le_float	:= caml_lessequal
+else
+C_primitive caml_le_float
+
+end C_primitive
+end if
+
+
+if GENERIC_COMPARE
+caml_lt_float	:= caml_lessthan
+else
+C_primitive caml_lt_float
+
+end C_primitive
+end if
 
 
 C_primitive caml_exp_float
@@ -894,12 +1044,6 @@ end C_primitive
 
 
 C_primitive caml_final_release
-
-end C_primitive
-
-
-
-C_primitive caml_float_compare
 
 end C_primitive
 
@@ -1077,12 +1221,6 @@ end C_primitive
 
 
 
-C_primitive caml_ge_float
-
-end C_primitive
-
-
-
 C_primitive caml_get_current_callstack
 
 end C_primitive
@@ -1138,24 +1276,6 @@ end C_primitive
 
 
 C_primitive caml_get_section_table
-
-end C_primitive
-
-
-
-C_primitive caml_greaterequal
-
-end C_primitive
-
-
-
-C_primitive caml_greaterthan
-
-end C_primitive
-
-
-
-C_primitive caml_gt_float
 
 end C_primitive
 
@@ -1508,9 +1628,20 @@ C_primitive caml_int_as_pointer
 end C_primitive
 
 
-
+; Возвращает результат сравнения целых знаковых чисел:
+; Val_int 1	- 1е > 2го;
+; Val_int 0	- значения равны;
+; Val_int -1	- 1е < 2го;
+; RDI - 1-е целое;
+; RSI - 2-е целое.
 C_primitive caml_int_compare
-
+	cmp	rdi, rsi
+	mov	eax, Val_int 0
+	mov	ecx, Val_int 1
+	mov	rdx, Val_int -1
+	cmovg	eax, ecx	; rdi > rsi
+	cmovl	rax, rdx	; rdi < rsi
+	ret
 end C_primitive
 
 
@@ -1551,24 +1682,6 @@ end C_primitive
 
 
 
-C_primitive caml_le_float
-
-end C_primitive
-
-
-
-C_primitive caml_lessequal
-
-end C_primitive
-
-
-
-C_primitive caml_lessthan
-
-end C_primitive
-
-
-
 C_primitive caml_lex_engine
 
 end C_primitive
@@ -1588,12 +1701,6 @@ end C_primitive
 
 
 C_primitive caml_log_float
-
-end C_primitive
-
-
-
-C_primitive caml_lt_float
 
 end C_primitive
 
@@ -2309,12 +2416,6 @@ end C_primitive
 
 
 
-C_primitive caml_neq_float
-
-end C_primitive
-
-
-
 C_primitive caml_new_lex_engine
 
 end C_primitive
@@ -2548,11 +2649,19 @@ C_primitive caml_static_resize
 end C_primitive
 
 
-
+; Возвращает результат сравнения строк:
+; Val_int 1	- 1я > 2й;
+; Val_int 0	- строки равны;
+; Val_int -1	- 1я < 2й;
+; RDI - 1-я строка;
+; RSI - 2-я строка.
+if GENERIC_COMPARE
+caml_string_compare := compare_val
+else
 C_primitive caml_string_compare
 
 end C_primitive
-
+end if
 
 
 C_primitive caml_string_equal

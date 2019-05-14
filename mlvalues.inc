@@ -88,9 +88,11 @@ Pair_tag	:=	0
 Closure_tag	:=	247
 Object_tag	:=	248
 Infix_tag	:=	249
+;Forward_tag	:=	250
 
 ; Тэги со значением равным и выше не содержат указателей и не подлежат сканированию.
 No_scan_tag	:=	251
+;Abstract_tag	:=	251
 
 String_tag	:=	252
 Double_tag	:=	253
