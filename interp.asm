@@ -788,12 +788,16 @@ end Instruct
 
 
 Instruct	GETFIELD2
-
+	mov	accu, [accu + 2 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
 Instruct	GETFIELD3
-
+	mov	accu, [accu + 3 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
