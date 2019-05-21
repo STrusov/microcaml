@@ -912,7 +912,7 @@ end C_primitive
 ; RDI - 1-е значение;
 ; RSI - 2-e значение.
 C_primitive caml_lessequal
-	mov	r8, Val_int 1
+	mov	r8d, Val_int 1
 	call	compare_val_r8
 	cmp	rax, r8
 	mov	rax, r8		; Val_true
@@ -926,7 +926,7 @@ end C_primitive
 ; RDI - 1-е значение;
 ; RSI - 2-e значение.
 C_primitive caml_lessthan
-	mov	r8, Val_int 1
+	mov	r8d, Val_int 1
 	call	compare_val_r8
 	cmp	rax, r8
 	mov	rax, r8		; Val_true
