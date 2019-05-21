@@ -1238,11 +1238,7 @@ end Instruct
 
 
 Instruct	GTINT
-	pop	rax
-	cmp	accu, rax
-	mov	eax, Val_true
-	mov	accud, Val_false
-	cmovg	accud, eax
+	INTcc	G
 	Instruct_next
 Instruct_size
 end Instruct
