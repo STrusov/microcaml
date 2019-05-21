@@ -183,7 +183,7 @@ end C_primitive
 
 ; Следующие 3 функции в оригинале вызывает универсальную caml_array_gather.
 
-; Возвращает (сылку на) массив, созданный из подмножества элементов исходного.
+; Возвращает (ссылку на) массив, созданный из подмножества элементов исходного.
 ; RDI - адрес исходного массива;
 ; RSI - номер (от 0) первого элемента подмножества.
 ; RDX - количество элементов подмножества.
@@ -218,7 +218,7 @@ end C_primitive
 ; RDI - 1-й массив;
 ; RSI - 2-й массив.
 C_primitive caml_array_append
-;	Суммируем размеры массовов, а тег копируем из 1го (прибавляя его к 0).
+;	Суммируем размеры массивов, а тег копируем из 1го (прибавляя его к 0).
 	mov	rdx, Val_header[rsi - sizeof value]
 	mov	rcx, Val_header[rdi - sizeof value]
 	and	rdx, not 0xff
@@ -258,12 +258,12 @@ C_primitive caml_array_concat
 ;	В случае массива из 0 элементов вернём Atom(0).
 	zero	rdx
 ;	Обнулим заголовок, что бы сборщик мусора мог определить частично
-;	созданный блок. Далее копируем элементы. Заголовок скореректируем,
+;	созданный блок. Далее копируем элементы. Заголовок скорректируем,
 ;	когда размер результирующего массива станет известен.
 	mov	Val_header[alloc_small_ptr_backup], rdx
 	mov	rax, rdi
 	lea	rdi, [alloc_small_ptr_backup + sizeof value]
-;	0-е поле элемента списка сордержит ссылку на массив.
+;	0-е поле элемента списка содержит ссылку на массив.
 .cp_ar:	mov	rsi, [rax + 0 * sizeof value]
 	mov	rcx, Val_header[rsi - sizeof value]
 ;	Суммируем длины и копируем тег.
@@ -936,7 +936,7 @@ C_primitive caml_lessthan
 end C_primitive
 
 
-; Возвращает результат сравнения 2-х вещественныхз чисел:
+; Возвращает результат сравнения 2-х вещественных чисел:
 ; Val_int 1	- 1е > 2го;
 ; Val_int 0	- числа равны;
 ; Val_int -1	- 1е < 2го;
@@ -1092,7 +1092,7 @@ C_primitive caml_format_int
 	neg	rsi
 	mov	byte[alloc_small_ptr_backup + rcx + sizeof value], '-'
 	inc	ecx
-.pos:	mov	edi, ecx	; позиция первого символа числа нажна в .rev:
+.pos:	mov	edi, ecx	; позиция первого символа числа нужна в .rev:
 ;	Делим на 10, умножая на магическое число.
 .@:	mov	rax, rsi
 	mov	rdx, 0xCCCCCCCCCCCCCCCD
@@ -1111,7 +1111,7 @@ C_primitive caml_format_int
 	jnz	.@
 ;	mov	byte[alloc_small_ptr_backup + rcx + sizeof value], 0
 	push	rcx
-;	Цифры числа расположены в обратноп порядке, переставляем.
+;	Цифры числа расположены в обратном порядке, переставляем.
 .rev:	dec	ecx
 	cmp	edi, ecx
 	jnc	.order
@@ -1760,7 +1760,7 @@ C_primitive caml_make_vect
 	mov	rcx, rdi
 	to_wosize rdi
 ;	надо: if (wsize > Max_wosize) caml_invalid_argument("Array.make");
-;	Проверяем, не является ли элемент ссылкой на вещественнное число.
+;	Проверяем, не является ли элемент ссылкой на вещественное число.
 	test	rsi, 1
 	jnz	.val
 	cmp	rsi, heap_small
@@ -2554,7 +2554,7 @@ end C_primitive
 ; CAMLprim value caml_register_named_value(value vname, value val)
 C_primitive caml_register_named_value
 C_primitive_stub
-; Вызыввается для "Pervasives.array_bound_error", "Pervasives.do_at_exit"
+; Вызывается для "Pervasives.array_bound_error", "Pervasives.do_at_exit"
 	mov	rax, Val_unit
 	ret
 end C_primitive
@@ -3060,6 +3060,6 @@ C_primitive caml_weak_set
 
 end C_primitive
 
-display_num "Реализовано C-примитивов (без учёта инедтичных): ", ..C_PRIM_IMPLEMENTED
+display_num "Реализовано C-примитивов (без учёта идентичных): ", ..C_PRIM_IMPLEMENTED
 display_num_ln " из ", ..C_PRIM_COUNT
 display_num_ln "Занимают байт (включая int3 заглушки): ", $-C_primitive_first

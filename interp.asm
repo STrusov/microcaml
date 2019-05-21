@@ -970,7 +970,6 @@ end Instruct
 ; Вызов С функций
 
 Instruct	C_CALL1
-;  Setup_for_c_call;
 	mov	eax, [opcode.1]
 	next_opcode
 	mov	alloc_small_ptr_backup, alloc_small_ptr	; rdi
@@ -995,7 +994,6 @@ end Instruct
 
 
 Instruct	C_CALL3
-;  Setup_for_c_call;
 	mov	eax, [opcode.1]
 	next_opcode
 	mov	alloc_small_ptr_backup, alloc_small_ptr	; rdi
@@ -1411,7 +1409,7 @@ CLOSURE_impl:
 	stos	Val_header[alloc_small_ptr]
 	movsxd	rax, [opcode.2]
 	lea	rax, [opcode.2 + rax * sizeof opcode]
-;	Cохраняем указатель на байт-код замыкания (pc + *pc).
+;	Сохраняем указатель на байт-код замыкания (pc + *pc).
 	stos	qword[alloc_small_ptr]
 ;	Копируем аргументы замыкания со стека.
 	mov	rsi, rsp
