@@ -248,6 +248,7 @@ end proc
 ; R10 - приравнивается RSI в начальной точке входа, более не изменяется;
 ; RAX - размер последнего проверенного блока (см. .compact:);
 ; RDX, RCX, R8, R9, R11 - не определены.
+; R14 - разрушается (что не по конвенции, но при вызове из ВМ допустимо).
 proc heap_mark_compact_gc
 s_base	equ r8
 s_size	equ r9
@@ -309,40 +310,58 @@ b_index	equ rsi
 	cmp	rdx, [heap_descriptor.uncommited]
 	jae	.search_block
 ;	Найдена ссылка на объект в куче. Промаркируем объект индексом ссылки.
-;	Выполним рекурсивный поиск ссылок в объекте, если он найден впервые.
 ;	Индекс ссылки, находящейся в теле блока в куче, по значению д.б. больше
 ;	чем размер стека - т.о. они различаются на стадии уплотнения.
 ;	Вычисляется как расстояние (в sizeof value) от адресуемого объекта
 ;	до места хранения ссылки + размер стека (в sizeof value).
-	push	rax rsi		; b_base b_index
-	lea	rsi, [b_base + b_index * sizeof value]	; далее b_index невалиден
-	mov	r11, rsi
-	sub	rsi, rdx
+b_ref	equ rdx
+ref_idx	equ r11
+hdr	equ r14
+	lea	ref_idx, [b_base + b_index * sizeof value]
+	sub	ref_idx, b_ref
 ;	Сдвиги можно оптимизировать, поскольку адреса кратны 8.
-;	shr	rsi, 3	; / 8
-	lea	rsi, [rsi + s_size * sizeof value]
-	shl	rsi, bsr (Max_wosize+1) + wosize_shift - 3
-	mov	b_base, rdx
-	mov	rdx, .mark_mask
-	test	rdx, [b_base - sizeof value]
-	mov	rdx, [b_base - sizeof value]
+;	shr	ref_idx, 3	; / 8
+	lea	ref_idx, [ref_idx + s_size * sizeof value]
+	shl	ref_idx, bsr (Max_wosize+1) + wosize_shift - 3
+	mov	hdr, .mark_mask
+	test	hdr, Val_header[b_ref - sizeof value]
+	mov	hdr, Val_header[b_ref - sizeof value]
+;	Запланируем рекурсивный поиск ссылок в объекте, если он найден впервые,
+;	сохранив в стеке ссылку на новый объект, и продолжим обработку текущего.
 	jnz	.already_marked_block
-	or	[b_base - sizeof value], rsi
-	mov	rsi, rdx	; b_index
-	jmp	.check_block
+;	(Если вложенные объекты сканировать сразу, на стеке приходится сохранять
+;	b_base и b_index для каждого вложенного объекта, что приводит к затратам
+;	памяти O(n) при обработке односвязных списков; в данном варианте для
+;	таких списков получаем O(1), поскольку достаточно всего 1й ячейки стека.)
+	push	b_ref
+	or	[b_ref - sizeof value], ref_idx
+	jmp	.search_block
 .already_marked_block:
 ;	Блок уже содержит индекс ссылки - его содержимое обработано.
 ;	Организуем односвязный список ссылок. Имеющийся заголовок перенесём
 ;	по адресу текущей ссылки, а на его место сохраним новый маркер.
-	mov	[r11], rdx
+	mov	[b_base + b_index * sizeof value], hdr
 ;	Маркер заменяем новым.
-	shl	rdx, 64 - ..Mark_shift
-	shr	rdx, 64 - ..Mark_shift
-	or	rsi, rdx
-	mov	[b_base - sizeof value], rsi
-;	Выходим из рекурсивной обработки, уже выполненной для найденного блока.
-	pop	rsi rax		; b_index b_base
+	shl	hdr, 64 - ..Mark_shift
+	shr	hdr, 64 - ..Mark_shift
+	or	ref_idx, hdr
+	mov	Val_header[b_ref - sizeof value], ref_idx
 	jmp	.search_block
+restore	hdr
+restore	ref_idx
+restore	b_ref
+.block_searched:
+;	Если стек запланированных блоков пуст, рекурсивная обработка
+;	блока из кучи, адресуемого ссылкой со стека ВМ, завершена.
+	cmp	rsp, s_base
+	jz	.search_stack
+;	Иначе сканируем блоки, содержащиеся в данном и запланированные ранее.
+	pop	b_base
+;	Блок промаркирован, но не обработан.
+	mov	b_index, not .mark_mask
+	and	b_index, Val_header[b_base - sizeof value]
+	jmp	.check_block
+restore b_index
 .already_marked:
 ;	rsi (b_index) содержит заголовок адресуемого блока (с прежним маркером).
 ;	Перенесём его по адресу текущей ссылки.
@@ -353,17 +372,8 @@ b_index	equ rsi
 	or	rsi, rdx
 	mov	[b_base - sizeof value], rsi
 	jmp	.search_stack
-
 restore b_base
 restore b_size
-restore b_index
-.block_searched:
-;	Если стек пуст, рекурсивная обработка текущего блока из кучи завершена.
-	cmp	rsp, s_base
-	jz	.search_stack
-;	Иначе продолжаем сканировать предыдущий уровень.
-	pop	rsi rax		; b_index b_base
-	jmp	.search_block
 restore s_index
 .stack_searched:
 ;	Стадия уплотнения кучи.
