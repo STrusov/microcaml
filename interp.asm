@@ -711,17 +711,25 @@ Instruct_size
 end Instruct
 
 
+; Сборка мусора может быть вызвана, когда в блоке размещён первый элемент,
+; являющийся ссылкой (такие создаёт mkleftlist). Что бы обеспечить
+; обработку таких ссылок, сохраняем адрес формируемого блока в стеке.
 Instruct	MAKEBLOCK2
 	mov	eax, [opcode.1]	; tag
 	next_opcode
 	or	eax, 2 wosize
-	stos	Val_header[alloc_small_ptr]
+;	Сохраняем возможную ссылку для учёта сборщиком мусора.
 	push	accu
+	stos	Val_header[alloc_small_ptr]
 	mov	rsi, rsp
+;	Сохраняем адрес блока (иначе при mkleftlist его содержимое оставалось
+;	без корректировки)
+	push	alloc_small_ptr
 	movs	qword[alloc_small_ptr], [rsi]
 	movs	qword[alloc_small_ptr], [rsi]
+	pop	accu	; адрес блока (за заголовком) скорректирован сборщиком мусора
 	mov	rsp, rsi
-	lea	accu, [alloc_small_ptr - 2 * sizeof value]	; Адрес блока (за заголовком).
+;	lea	accu, [alloc_small_ptr - 2 * sizeof value]	; Адрес блока (за заголовком).
 	Instruct_next
 Instruct_size
 end Instruct

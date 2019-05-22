@@ -274,8 +274,13 @@ s_index	equ rcx
 	jnz	.search_stack
 	cmp	rax, alloc_small_ptr
 	jc	.search_stack
+;	Случай, когда адрес равен границе неотображённой памяти, считаем валидной
+;	ссылкой на частично размещённый блок (SIGSEGV сненерирован сразу после
+;	размещения заголовка; например, mklist вызывает MAKEBLOCK2). Позволяет
+;	скорректировать ссылку на перемещённый пустой блок. Неразмещённое
+;	содержимое блока пропускается из-за ограничения индекса (см. .check_block:).
 	cmp	rax, [heap_descriptor.uncommited]
-	jae	.search_stack
+	ja	.search_stack
 ;	Найдена ссылка на объект в куче. Промаркируем объект индексом ссылки -
 ;	для быстрой её модификации при уплотнении кучи.
 	mov	rdx, s_index
@@ -298,6 +303,13 @@ b_index	equ rsi
 	jae	.block_searched
 	from_wosize b_index
 	jz	.empty_block			;; ?
+;	Что бы не адресовать ячейки за пределами отображённых страниц памяти,
+;	скорректируем максимальный индекс для блоков, размещённых частично.
+	lea	b_index, [b_base + b_index * sizeof value]
+	cmp	b_index, [heap_descriptor.uncommited]
+	cmovnc	b_index, [heap_descriptor.uncommited]
+	sub	b_index, b_base
+	shr	b_index, 3	; / sizeof value
 .search_block:
 	dec	b_index
 	js	.block_searched
@@ -424,6 +436,13 @@ restore s_index
 	jnz	.next_link
 	mov	rcx, rax
 	from_wosize rcx
+;	Что бы не адресовать ячейки за пределами отображённых страниц памяти,
+;	cкорректируем размер для блоков, размещённых частично.
+	lea	rcx, [rsi + rcx * sizeof value]
+	cmp	rcx, [heap_descriptor.uncommited]
+	cmovnc	rcx, [heap_descriptor.uncommited]
+	sub	rcx, rsi
+	shr	rcx, 3	; / sizeof value
 rep	movs	qword[alloc_small_ptr], [rsi]
 	jmp	.compact
 .next_link:
