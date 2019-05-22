@@ -664,33 +664,33 @@ end Instruct
 
 Instruct	PUSHATOM
 
-;	хвост MAKEBLOCK
-..MAKEBLOCK_CNT:
-	neg	accu
-	lea	accu, [alloc_small_ptr + accu * sizeof value]
-	Instruct_next
-;Instruct_size
 end Instruct
 
 
 ; При размещении блока, во время копирования значений со стека на кучу,
 ; возможен вызов сборщика мусора. Поскольку значения могут представлять собой
 ; ссылки на объекты (живые), их необходимо сохранять в стеке до завершения
-; формирования блока. Так же и адрес блока д.б. вычислен на завершающей стадии.
+; формирования блока. Кроме того, необходимо сохранить ссылку на формируемый
+; блок, что бы скорректировать те ссылки, что уже размещены в блоке.
+; Копирование выполняем инструкцией movs: при вызове сборщика мусора исходное
+; значение может быть изменено, модификация и окажется скопирована в приёмник
+; при возврате из обработчика прерывания.
 Instruct	MAKEBLOCK
 	mov	ecx, [opcode.1]		; wosize
 	mov	eax, ecx
 	to_wosize	eax
 	or	eax, [opcode.2]		; tag
 	next_opcode	2
+;	Сохраняем возможную ссылку для учёта сборщиком мусора.
 	push	accu
 	stos	Val_header[alloc_small_ptr]
 	mov	rsi, rsp
-	mov	accud, ecx
+;	Сохраняем адрес блока для корректировки скопированных ссылок сборщиком мусора.
+	push	alloc_small_ptr
 rep	movs	qword[alloc_small_ptr], [rsi]
+	pop	accu	; адрес блока (за заголовком) скорректирован сборщиком мусора
 	mov	rsp, rsi
-	jmp	..MAKEBLOCK_CNT
-;	Instruct_next
+	Instruct_next
 Instruct_size
 end Instruct
 
@@ -699,13 +699,15 @@ Instruct	MAKEBLOCK1
 	mov	eax, [opcode.1]	; tag
 	next_opcode
 	or	eax, 1 wosize
-	stos	Val_header[alloc_small_ptr]
-	mov	rax, accu
-;	Значение на стеке будет учтено сборщиком мусора
+;	Сохраняем возможную ссылку для учёта сборщиком мусора.
+;	Адрес блока сохранять не требуется, так как тело блока, состоящее из
+;	одного элемента, изменится "атомарно".
 	push	accu
-	stos	qword[alloc_small_ptr]
-	pop	accu
-	lea	accu, [alloc_small_ptr - 1 * sizeof value]	; Адрес блока (за заголовком).
+	stos	Val_header[alloc_small_ptr]
+	mov	rsi, rsp
+	movs	qword[alloc_small_ptr], [rsi]
+	mov	rsp, rsi
+	lea     accu, [alloc_small_ptr - 1 * sizeof value]      ; Адрес блока (за заголовком).
 	Instruct_next
 Instruct_size
 end Instruct
@@ -738,32 +740,40 @@ end Instruct
 Instruct	MAKEBLOCK3
 	mov	eax, [opcode.1]	; tag
 	next_opcode
-;	or	eax, 3 wosize
-	mov	ah, 3
-	stos	Val_header[alloc_small_ptr]
+	or	eax, 3 wosize
+;	Сохраняем возможную ссылку для учёта сборщиком мусора.
 	push	accu
+	stos	Val_header[alloc_small_ptr]
 	mov	rsi, rsp
+;	Сохраняем адрес блока (иначе при mkleftlist его содержимое оставалось
+;	без корректировки)
+	push	alloc_small_ptr
 	movs	qword[alloc_small_ptr], [rsi]
 	movs	qword[alloc_small_ptr], [rsi]
 	movs	qword[alloc_small_ptr], [rsi]
+	pop	accu	; адрес блока (за заголовком) скорректирован сборщиком мусора
 	mov	rsp, rsi
-	lea	accu, [alloc_small_ptr - 3 * sizeof value]	; Адрес блока (за заголовком).
 	Instruct_next
 Instruct_size
 end Instruct
 
 
+; Процедура читает со стека ссылки на вещественные числа и переносит значения
+; в создаваемый блок. Внутри блока сборщику мусора учитывать нечего.
 Instruct	MAKEFLOATBLOCK
 	mov	ecx, [opcode.1]	; кол-во
 	next_opcode
 	mov	eax, ecx
 	to_wosize rax
 	or	rax, Double_array_tag
+;	Сохраняем ссылку для учёта сборщиком мусора.
 	push	accu
 	stos	Val_header[alloc_small_ptr]
 ;	Читаем со стека ссылки на числа и переносим значения в кучу.
 ;	Стек оставляем до конца формирования блока на случай сборки мусора.
 	mov	rsi, rsp
+;	Можно было бы сохранить alloc_small_ptr на стеке, что бы не вычислять далее,
+;	блок с Double_array_tag не сканируется. Однако, уложиться в 32 байта не удаётся.
 	mov	accud, ecx
 	jmp	..MAKEFLOATBLOCK_CNT
 Instruct_size
