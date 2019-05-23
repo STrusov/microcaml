@@ -348,4 +348,6 @@ iterate prim,\
 	dw prim - C_primitive_first
 end iterate
 
+..C_PRIM_TOTAL := ($-caml_builtin_cprim) / 2
+
 display_num_ln 'Размер таблицы адресов примитивов: ', $-caml_builtin_cprim
