@@ -279,7 +279,7 @@ s_index	equ rcx
 ;	размещения заголовка; например, mklist вызывает MAKEBLOCK2). Позволяет
 ;	скорректировать ссылку на перемещённый пустой блок. Неразмещённое
 ;	содержимое блока пропускается из-за ограничения индекса (см. .check_block:).
-	cmp	rax, [heap_descriptor.uncommited]
+	cmp	rax, gc_end	; [heap_descriptor.uncommited]
 	ja	.search_stack
 ;	Найдена ссылка на объект в куче. Промаркируем объект индексом ссылки -
 ;	для быстрой её модификации при уплотнении кучи.
@@ -306,8 +306,8 @@ b_index	equ rsi
 ;	Что бы не адресовать ячейки за пределами отображённых страниц памяти,
 ;	скорректируем максимальный индекс для блоков, размещённых частично.
 	lea	b_index, [b_base + b_index * sizeof value]
-	cmp	b_index, [heap_descriptor.uncommited]
-	cmovnc	b_index, [heap_descriptor.uncommited]
+	cmp	b_index, gc_end	; [heap_descriptor.uncommited]
+	cmovnc	b_index, gc_end	; [heap_descriptor.uncommited]
 	sub	b_index, b_base
 	shr	b_index, 3	; / sizeof value
 .search_block:
@@ -319,7 +319,7 @@ b_index	equ rsi
 	jnz	.search_block
 	cmp	rdx, alloc_small_ptr
 	jc	.search_block
-	cmp	rdx, [heap_descriptor.uncommited]
+	cmp	rdx, gc_end	; [heap_descriptor.uncommited]
 	jae	.search_block
 ;	Найдена ссылка на объект в куче. Промаркируем объект индексом ссылки.
 ;	Индекс ссылки, находящейся в теле блока в куче, по значению д.б. больше
