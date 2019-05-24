@@ -718,23 +718,23 @@ val2	equ rsi
 	cmp	val2, [heap_descriptor.uncommited]
 	jnc	.arbitrary_ptr
 ;	Сравниваем теги блоков.
-	movzx	eax, byte[val1 - sizeof value]
+	mov	rax, Val_header[val1 - sizeof value]
 ;	cmp	al, Forward_tag
 ;	jz	.forward_tag
-	movzx	edx, byte[val2 - sizeof value]
+	mov	rdx, Val_header[val2 - sizeof value]
 ;	cmp	dl, Forward_tag
 ;	jz	.forward_tag
-	cmp	eax, edx
+	cmp	al, dl
 	jnz	.result
-	cmp	dl, Closure_tag		; 247
+	cmp	al, Closure_tag		; 247
 	jb	.default_tag
 ;	cmp	dl, Infix_tag		; 249
 ;	cmp	dl, Abstract_tag	; 251
-	cmp	dl, String_tag		; 252
+	cmp	al, String_tag		; 252
 	jz	.string_tag
-	cmp	dl, Double_tag		; 253
+	cmp	al, Double_tag		; 253
 	jz	.double_tag
-	cmp	dl, Double_array_tag	; 254
+	cmp	al, Double_array_tag	; 254
 	jz	.double_array_tag
 ;	cmp	dl, Custom_tag		; 255
 	ja	.arbitrary_ptr
@@ -745,8 +745,6 @@ ud2
 	jmp	.result
 ;	Теги равны - сравниваем размеры
 .default_tag:
-	mov	rax, Val_header[val1 - sizeof value]
-	mov	rdx, Val_header[val2 - sizeof value]
 	cmp	rax, rdx
 	jnz	.result
 	from_wosize rdx
