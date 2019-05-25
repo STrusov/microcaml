@@ -1324,7 +1324,9 @@ end Instruct
 
 
 Instruct	BLEINT
-
+	BccINT	LE
+	Instruct_next
+Instruct_size
 end Instruct
 
 
@@ -1336,7 +1338,9 @@ end Instruct
 
 
 Instruct	BGEINT
-
+	BccINT	GE
+	Instruct_next
+Instruct_size
 end Instruct
 
 
