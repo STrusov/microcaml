@@ -55,6 +55,12 @@ interprete:
 	zero	extra_args
 	lea	env, [Atom 0]
 	mov	accud, Val_int_0
+;	Оригинал сохраняет границу стека и в инструкции RAISE сравнивает c
+;	caml_trapsp, что бы определить наличие установленных обработчиков
+;	исключений (которые представляют собой адрес для загрузки в vm_pc).
+;	Здесь для простоты используем заведомо невалидный адрес.
+	pushq	0
+	mov	caml_trapsp, rsp
 end macro
 
 
@@ -969,6 +975,10 @@ end Instruct
 Instruct	RAISE
 	mov	rsp, caml_trapsp
 	pop	vm_pc
+	test	vm_pc, vm_pc
+;	В оригинале происходит выход из функции интерпретатора, с установкой
+;	признака исключения в accu. Здесь проще вызвать процедуру напрямую.
+	jz	caml_fatal_uncaught_exception
 	pop	caml_trapsp
 	pop	env
 	pop	extra_args
@@ -1517,4 +1527,99 @@ proc undefined_instruction
 	push	rdi
 	puts	rsp 
 	jmp	main.invalid_bytecode
+end proc
+
+
+; Завершение работы при возникновении исключения.
+; RDX - адрес пары значений, содержащей информацию об исключении.
+proc caml_fatal_uncaught_exception
+;	Регистрация обработчиков непойманых исключений пока не реализована.
+;	Вызываем обработчик по умолчанию.
+;
+;	Формируем строку с информацией об исключении.
+;	Обнуляем длину на случай уплотнения кучи. Корректировка не потребуется.
+	mov	eax, String_tag
+	stos	Val_header[alloc_small_ptr]
+	push	alloc_small_ptr
+	lea	rsi, [msg_fatal_error]
+	mov	ecx, msg_fatal_error.size
+rep	movs	byte[alloc_small_ptr], [rsi]
+;	caml_format_exception()
+;	Форматируем информацию об исключении.
+	cmp	byte[rdx - sizeof value], 0	; Тег
+	jz	.fmt
+ud2	;add_string(&buf, String_val(Field(exn, 0)));
+.fmt:;	Получаем адрес строки вида 'Assert_failure'
+	mov	rsi, [rdx]
+	mov	rsi, [rsi]	; String_val(Field(Field(exn, 0), 0)
+;	и добавляем её к текущему сообщению.
+	caml_string_length	rsi, rcx, rax
+rep	movs	byte[alloc_small_ptr], [rsi]
+	mov	al, '('
+	stos	byte[alloc_small_ptr]
+;	Особые варианты Match_failure и Assert_failure
+	mov	rax, Val_header[rdx - sizeof value]
+	cmp	eax, 2 wosize
+	jnz	.ord_exn
+;	Используем регистры, неизменяемые вызываемой процедурой.
+;	Для ВМ в данной точке они более не актуальны.
+bucket	equ rbx
+start	equ r12
+	zero	start
+	mov	bucket, [rdx + 1 * sizeof value]
+	test	bucket , 1		; Блок?
+	jnz	.ord_exn
+	cmp	byte[bucket - sizeof value], 0	; Тег
+	jnz	.ord_exn
+	mov	rcx, [caml_global_data]
+	mov	rax, [rdx]
+	cmp	rax, [rcx +  7 * sizeof value]	; MATCH_FAILURE_EXN
+	jz	.fmt_exn
+	cmp	rax, [rcx + 10 * sizeof value]	; ASSERT_FAILURE_EXN
+	jz	.fmt_exn
+	cmp	rax, [rcx + 11 * sizeof value]	; UNDEFINED_RECURSIVE_MODULE_EXN
+	jz	.fmt_exn
+.ord_exn:
+	mov	bucket, rdx
+	inc	start
+.fmt_exn:
+	mov	r13, Val_header[bucket - sizeof value]
+	from_wosize r13
+	cmp	start, r13
+	ja	.close
+.elem:	mov	rsi, [bucket + start * sizeof value]
+	test	rsi, 1
+	jz	.block
+;	Форматируем знаковое целое.
+	mov	alloc_small_ptr_backup, alloc_small_ptr
+	call	format_int_dec
+	lea	alloc_small_ptr, [alloc_small_ptr_backup + rdi]
+	jmp	.next
+.block:	cmp	byte[rsi - sizeof value], String_tag
+	jnz	.any
+	mov	al, '"'
+	stos	byte[alloc_small_ptr]
+	caml_string_length rsi, rcx, rax
+rep	movs	byte[alloc_small_ptr], [rsi]
+	mov	al, '"'
+	stos	byte[alloc_small_ptr]
+	jmp	.next
+.any:	mov	al, '_'
+	stos	byte[alloc_small_ptr]
+.next:	inc	start
+	cmp	start, r13
+	jz	.close
+	mov	ax, ', '
+	stos	word[alloc_small_ptr]
+	jmp	.elem
+.close:	mov	eax, ')' + 256 * 10
+	stos	dword[alloc_small_ptr]
+	pop	rax
+	puts	rax
+	mov	eax, 2
+	jmp	sys_exit
+restore	start
+restore	bucket
+msg_fatal_error	db 'Фатальная ошибка: исключение '
+msg_fatal_error.size := $-msg_fatal_error
 end proc
