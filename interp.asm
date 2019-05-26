@@ -185,12 +185,14 @@ end Instruct
 
 
 Instruct	ACC6
-
+	mov	accu, [vm_sp.6]
+	Instruct_next
 end Instruct
 
 
 Instruct	ACC7
-
+	mov	accu, [vm_sp.7]
+	Instruct_next
 end Instruct
 
 
