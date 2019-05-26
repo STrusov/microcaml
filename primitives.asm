@@ -2664,8 +2664,39 @@ end C_primitive
 end if
 
 
-C_primitive caml_string_equal
+; Возвращает результат сравнения строк:
+; Val_true - строки различаются.
+; Val_false - строки идентичны;
+; RDI - 1-я строка;
+; RSI - 2-я строка.
+C_primitive caml_string_notequal
+	mov	eax, Val_false
+	jmp	caml_string_equal.cmp
+end C_primitive
 
+
+; Возвращает результат сравнения строк:
+; Val_true - строки идентичны;
+; Val_false - строки различаются.
+; RDI - 1-я строка;
+; RSI - 2-я строка.
+C_primitive caml_string_equal
+	mov	eax, Val_true
+caml_string_equal.cmp:
+	mov	rcx, Val_header[rsi - sizeof value]
+	mov	rdx, Val_header[rdi - sizeof value]
+	cmp	rcx, rdx
+	jnz	.ret_n
+	from_wosize rcx
+;	При сравнении с конца строк сразу проверяется различие в длинах до байта.
+.@:	mov	rdx, [rsi + (rcx - 1) * sizeof value]
+	cmp	rdx, [rdi + (rcx - 1) * sizeof value]
+	jnz	.ret_n
+	dec	rcx
+	jnz	.@
+	ret
+.ret_n:	xor	eax, Val_true xor Val_false
+	ret
 end C_primitive
 
 
@@ -2713,12 +2744,6 @@ end C_primitive
 
 
 C_primitive caml_string_lessthan
-
-end C_primitive
-
-
-
-C_primitive caml_string_notequal
 
 end C_primitive
 
