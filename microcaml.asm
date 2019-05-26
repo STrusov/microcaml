@@ -338,23 +338,26 @@ Intext_magic_number_small := 0x8495A6BE bswap 4
 	lods	dword[rsi]
 	lods	dword[rsi]
 	bswap	eax		; num_objects
-;
-;	Пока не аллоцируем. Надо ли?
-;
+;	Выделяем на стеке место под временную таблицу с адресами объектов,
+;	сохранив её размер. Требуется для обработки CODE_SHARED*
+intern_obj_table equ (rbp + sizeof value)	; учитываем push rax дальше
+obj_counter	equ r8
+	neg	rax
+	lea	rsp, [rsp + rax * sizeof value]
+	neg	rax
+	push	rax
+	zero	obj_counter
+	mov	rbp, rsp
 	lods	dword[rsi]
 	lods	dword[rsi]
 	bswap	eax		; whsize64
 	mov	ecx, eax
-
 ;	ocamlrun считывает значение функцией intern_rec() во внутреннее хранилище
-;	и сохраняет сслыку в caml_global_data для доступа по инструкции GETGLOBAL.
+;	и сохраняет ссылку в caml_global_data для доступа по инструкции GETGLOBAL.
 ;	Здесь сохраняются объекты при чтении из DATA.
 intern_dest	equ alloc_small_ptr	; intern_block == intern_dest + sizeof value
-; 	intern_alloc()
-;	Таблица ссылок на сохранённые объекты.
 dest		equ rbx
 	lea	dest, [caml_global_data]
-
 ;	intern_rec()
 ;	Развёрнутая рекурсия. Счётчики циклов сохраняем на стеке.
 	virtual at rsp
@@ -362,8 +365,12 @@ dest		equ rbx
 		.count	dq ?
 		.dest	dq ?
 	end virtual
-	mov	rbp, rsp
 	jmp	.read_code
+;	Адреса объектов кешируем.
+.read_obj_ok:
+	mov	[intern_obj_table + obj_counter * sizeof value], rax
+	inc	obj_counter
+	jmp	.read_item_ok
 ;	Целые сохраняются в таблице ссылок непосредственно как значения.
 .read_int_ok:
 	lea	rax, [2*rax+1]
@@ -381,6 +388,7 @@ CODE_DOUBLE_ARRAY8_LITTLE	:= 0xE
 CODE_DOUBLE_LITTLE	:= 0xC
 CODE_STRING8		:= 0x9
 CODE_BLOCK32		:= 0x8
+CODE_SHARED16		:= 0x5
 CODE_SHARED8		:= 0x4
 CODE_INT64		:= 0x3
 CODE_INT16		:= 0x1
@@ -417,6 +425,8 @@ CODE_INT8		:= 0x0
 	jz	.code_int64
 	cmp	al, CODE_SHARED8
 	jz	.code_shared8
+	cmp	al, CODE_SHARED16
+	jz	.code_shared16
 	cmp	al, CODE_CUSTOM
 	jz	.code_custom
 
@@ -451,8 +461,17 @@ CODE_INT8		:= 0x0
 .code_shared8:
 	zero	eax
 	lods	byte[rsi]
-	mov	rax, 'C_SHARED'
+.read_shared:
+	neg	rax
+	add	rax, obj_counter
+	mov	rax, [intern_obj_table + rax * sizeof value]
 	jmp	.read_item_ok
+.code_shared16:
+	lods	byte[rsi]
+	shl	eax, 8
+	lods	byte[rsi]
+	movsx	rax, ax
+	jmp	.read_shared
 
 .small_block:
 	mov	ecx, eax
@@ -486,7 +505,7 @@ int3
 .read_block_rest:
 	mov	rax, intern_dest
 	lea	intern_dest, [intern_dest + sizeof value * rcx]
-	jmp	.read_item_ok
+	jmp	.read_obj_ok
 .read_block_0:
 ;	(((value) (((header_t *) (&(caml_atom_table [(tag)]))) + 1)))
 	lea	rax, [caml_atom_table + (rax + 1) * sizeof value]
@@ -521,14 +540,14 @@ rep	stos	byte[intern_dest]
 	mov	eax, edx
 	stos	byte[intern_dest]
 	pop	rax
-	jmp	.read_item_ok
+	jmp	.read_obj_ok
 
 .code_double_little:
 	mov	eax, 1 wosize or Double_tag
 	stos	Val_header[intern_dest]
 	mov	rax, intern_dest
 	movs	qword[intern_dest], [rsi]
-	jmp	.read_item_ok
+	jmp	.read_obj_ok
 
 .code_double_array8_little:
 	zero	eax
@@ -539,7 +558,7 @@ rep	stos	byte[intern_dest]
 	stos	Val_header[intern_dest]
 	mov	rax, intern_dest
 rep	movs	qword[intern_dest], [rsi]
-	jmp	.read_item_ok
+	jmp	.read_obj_ok
 
 .code_block32:
 	lods	dword[rsi]
@@ -567,11 +586,16 @@ rep	movs	qword[intern_dest], [rsi]
 	bswap	rax
 	stos	qword[intern_dest]
 	pop	rax
-	jmp	.read_item_ok
+	jmp	.read_obj_ok
 
 restore	intern_dest
-restore dest
+restore	dest
+restore	obj_counter
+restore	intern_obj_table
 .read_items_finished:
+;	Удаляем intern_obj_table
+	pop	rax
+	lea	rsp, [rsp + rax * sizeof value]
 ;	Инициализация необходимых для работы сборщика мусора переменных.
 ;	Текущее значение указателя стека используется как верхняя граница
 ;	при поиске ссылок (roots) на объекты в куче.
