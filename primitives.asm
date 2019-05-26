@@ -1078,19 +1078,33 @@ C_primitive caml_format_float
 end C_primitive
 
 
+; Преобразует числов в OCaml-строку (с заголовком) согласно формата.
 ; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
 ; RSI - целое (в OCaml-представлении).
 C_primitive caml_format_int
+;	Создаём заголовок с нулевой длиной. Скоректируем её по готовности строки.
+	mov	qword[alloc_small_ptr_backup], String_tag
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
 ;	в pervasives.ml встречается только %d (см. string_of_int)
 	cmp	word[rdi], '%d'
 	jnz	.fmt
+	call	format_int_dec
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
+	jmp	caml_alloc_string
+.fmt:
+int3
+end C_primitive
+
+
+; Преобразует числов в текстовую форму, располагая строку в текущие адреса кучи.
+; Возвращает в RDI длину строки-результата.
+; RSI - знаковое целое (в OCaml-представлении).
+proc	format_int_dec
 	zero	ecx
-;	Обнуляем заголовок. Скоректируем его, когда строка будет готова.
-	mov	[alloc_small_ptr_backup], rcx
 	Int_val rsi
 	jns	.pos
 	neg	rsi
-	mov	byte[alloc_small_ptr_backup + rcx + sizeof value], '-'
+	mov	byte[alloc_small_ptr_backup + rcx], '-'
 	inc	ecx
 .pos:	mov	edi, ecx	; позиция первого символа числа нужна в .rev:
 ;	Делим на 10, умножая на магическое число.
@@ -1105,27 +1119,25 @@ C_primitive caml_format_int
 	sub	rax, rdx	; остаток
 ;	Сохраняем остаток в виде символа.
 	add	al ,'0'
-	mov	[alloc_small_ptr_backup + rcx + sizeof value], al
+	mov	[alloc_small_ptr_backup + rcx], al
 	inc	ecx
 	test	rsi, rsi
 	jnz	.@
-;	mov	byte[alloc_small_ptr_backup + rcx + sizeof value], 0
+;	mov	byte[alloc_small_ptr_backup + rcx], 0
 	push	rcx
 ;	Цифры числа расположены в обратном порядке, переставляем.
 .rev:	dec	ecx
 	cmp	edi, ecx
 	jnc	.order
-	mov	al, [alloc_small_ptr_backup + rdi + sizeof value]
-	mov	dl, [alloc_small_ptr_backup + rcx + sizeof value]
-	mov	[alloc_small_ptr_backup + rcx + sizeof value], al
-	mov	[alloc_small_ptr_backup + rdi + sizeof value], dl
+	mov	al, [alloc_small_ptr_backup + rdi]
+	mov	dl, [alloc_small_ptr_backup + rcx]
+	mov	[alloc_small_ptr_backup + rcx], al
+	mov	[alloc_small_ptr_backup + rdi], dl
 	inc	edi
 	jmp	.rev
 .order:	pop	rdi	; размер строки
-	jmp	caml_alloc_string
-.fmt:
-int3
-end C_primitive
+	ret
+end proc
 
 
 ;CAMLprim value caml_fresh_oo_id (value v)
