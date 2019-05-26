@@ -802,6 +802,8 @@ ud2
 	cmovc	rcx, rdx
 .str_c:	mov	dl, [val1]
 	cmp	dl, [val2]
+	lea	val1, [val1 + 1]
+	lea	val2, [val2 + 1]
 	jnz	.result
 	dec	rcx
 	jnz	.str_c
