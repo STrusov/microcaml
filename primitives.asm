@@ -59,21 +59,43 @@ C_primitive caml_add_float
 end C_primitive
 
 
+; Резервирует место в куче под массив вещественных чисел.
+; RDI - размер (OCaml value) размещаемого в памяти блока в словах.
+caml_alloc_dummy_float:
+; На AMD64 вещественное число занимает столько же места, сколько другое значение.
+int3
 
+
+; Резервирует место в куче для функции.
+; RDI - размер (OCaml value) размещаемого в памяти блока в словах.
+; RSI - арность. В оригинале используется js_of_ocaml runtime.
+caml_alloc_dummy_function:
+
+
+; Резервирует место в куче.
+; RDI - размер (OCaml value) размещаемого в памяти блока в словах.
 C_primitive caml_alloc_dummy
-
+	Int_val	rdi
+	lea	rax, [Atom 0]
+	jz	.exit
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (1 + rdi) * sizeof value]
+	to_wosize rdi
+	mov	Val_header[rax - sizeof value], rdi
+.exit:	ret
 end C_primitive
 
 
-
-C_primitive caml_alloc_dummy_float
-
-end C_primitive
-
-
-
-C_primitive caml_alloc_dummy_function
-
+; Актуализирует зарезервированный блок новыми данными.
+; RDI - адрес зарезервированного блока.
+; RSI - адрес нового содержимого.
+C_primitive caml_update_dummy
+	mov	rcx, Val_header[rsi - sizeof value]
+	mov	Val_header[rdi - sizeof value], rcx
+	from_wosize rcx
+rep	movs	qword[rdi], [rsi]
+	mov	eax, Val_unit
+	ret
 end C_primitive
 
 
@@ -3054,12 +3076,6 @@ end C_primitive
 
 
 C_primitive caml_terminfo_standout
-
-end C_primitive
-
-
-
-C_primitive caml_update_dummy
 
 end C_primitive
 
