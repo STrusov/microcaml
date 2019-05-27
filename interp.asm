@@ -437,7 +437,16 @@ end Instruct
 
 
 Instruct	APPTERM
-
+	mov	ecx, [opcode.1]	; количество аргументов
+	mov	eax, [opcode.2]	; размер слота
+	sub	eax, ecx
+	dec	ecx
+	lea	extra_args, [extra_args + rcx]
+	lea	rax, [rsp + rax * sizeof value]
+.copy:	mov	rsi, [rsp + rcx * sizeof value]
+	mov	[rax + rcx * sizeof value], rsi
+	jmp	..APPTERM_tail
+Instruct_size
 end Instruct
 
 
@@ -446,9 +455,14 @@ Instruct	APPTERM1
 	mov	eax, [opcode.1]
 	lea	vm_sp, [vm_sp + (rax - 1) * sizeof value]
 	push	rcx
-	mov	vm_pc, [accu]
+.br:	mov	vm_pc, [accu]
 	mov	env, accu
 	Instruct_next
+..APPTERM_tail:
+	dec	ecx
+	jns	Instruct_APPTERM.copy
+	mov	rsp, rax
+	jmp	.br
 Instruct_size
 end Instruct
 
