@@ -86,15 +86,26 @@ assert instruction_size_log2 = bsf instruction_size	; должна быть ст
 execute_instruction:
 	mov	eax, [opcode]
 	shl	rax, instruction_size_log2
+;	Переход никогда не происходит. Предотвращает предсказания следующего
+;	косвенного перехода, во многих случаях некорректные.
+	jc	.stop
 	lea	rax, [rax + vm_base + vm_base_lbl - execute_instruction]
 	next_opcode
 	jmp	rax
-	ud2
+.stop:	ud2
 display_num_ln 'Размер трамплина: ', $ - execute_instruction
 
 
 macro Instruct_next
+if ($-ELF.SECTION_BASE) mod instruction_size >= instruction_size - 16
 	jmp	vm_base
+else
+	mov	eax, [opcode]
+	shl	rax, instruction_size_log2
+	lea	rax, [rax + vm_base + vm_base_lbl - execute_instruction]
+	next_opcode
+	jmp	rax
+end if
 end macro
 
 
@@ -783,40 +794,13 @@ end Instruct
 ; Процедура читает со стека ссылки на вещественные числа и переносит значения
 ; в создаваемый блок. Внутри блока сборщику мусора учитывать нечего.
 Instruct	MAKEFLOATBLOCK
-	mov	ecx, [opcode.1]	; кол-во
-	next_opcode
-	mov	eax, ecx
-	to_wosize rax
-	or	rax, Double_array_tag
-;	Сохраняем ссылку для учёта сборщиком мусора.
-	push	accu
-	stos	Val_header[alloc_small_ptr]
-;	Читаем со стека ссылки на числа и переносим значения в кучу.
-;	Стек оставляем до конца формирования блока на случай сборки мусора.
-	mov	rsi, rsp
-;	Можно было бы сохранить alloc_small_ptr на стеке, что бы не вычислять далее,
-;	блок с Double_array_tag не сканируется. Однако, уложиться в 32 байта не удаётся.
-	mov	accud, ecx
-	jmp	..MAKEFLOATBLOCK_CNT
-Instruct_size
+	jmp	MAKEFLOATBLOCK_impl
 end Instruct
 
 
 Instruct	GETFIELD0
 	mov	accu, [accu + 0 * sizeof value]
 	Instruct_next
-
-..MAKEFLOATBLOCK_CNT:
-.cp:	lods	qword[rsi]
-	mov	rax, [rax]
-	stos	qword[alloc_small_ptr]
-	dec	ecx
-	jnz	.cp
-	mov	rsp, rsi
-	neg	accu
-	lea	accu, [alloc_small_ptr + accu * sizeof value]
-	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1436,6 +1420,34 @@ end Instruct
 
 ;end Instruct
 
+
+; Процедура читает со стека ссылки на вещественные числа и переносит значения
+; в создаваемый блок. Внутри блока сборщику мусора учитывать нечего.
+MAKEFLOATBLOCK_impl:
+	mov	ecx, [opcode.1]	; кол-во
+	next_opcode
+	mov	eax, ecx
+	to_wosize rax
+	or	rax, Double_array_tag
+;	Сохраняем ссылку для учёта сборщиком мусора.
+	push	accu
+	stos	Val_header[alloc_small_ptr]
+;	Читаем со стека ссылки на числа и переносим значения в кучу.
+;	Стек оставляем до конца формирования блока на случай сборки мусора.
+	mov	rsi, rsp
+;	Можно было бы сохранить alloc_small_ptr на стеке, что бы не вычислять далее,
+;	блок с Double_array_tag не сканируется. Однако, уложиться в 32 байта не удаётся.
+	mov	accud, ecx
+.cp:	lods	qword[rsi]
+	mov	rax, [rax]
+	stos	qword[alloc_small_ptr]
+	dec	ecx
+	jnz	.cp
+	mov	rsp, rsi
+	neg	accu
+	lea	accu, [alloc_small_ptr + accu * sizeof value]
+	Instruct_next
+display_num_ln "MAKEFLOATBLOCK_impl: ", $-MAKEFLOATBLOCK_impl
 
 ; При размещении блока, во время копирования аргументов замыкания со стека на кучу,
 ; возможен вызов сборщика мусора. Поскольку эти значения могут представлять собой
