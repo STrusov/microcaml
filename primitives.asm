@@ -78,10 +78,11 @@ C_primitive caml_alloc_dummy
 	Int_val	rdi
 	lea	rax, [Atom 0]
 	jz	.exit
-	lea	rax, [alloc_small_ptr_backup + sizeof value]
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (1 + rdi) * sizeof value]
 	to_wosize rdi
-	mov	Val_header[rax - sizeof value], rdi
+	mov	Val_header[alloc_small_ptr_backup], rdi
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	from_wosize rdi
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (1 + rdi) * sizeof value]
 .exit:	ret
 end C_primitive
 
