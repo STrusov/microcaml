@@ -524,11 +524,8 @@ Instruct_stub
 	mov	eax, [opcode.1]
 	next_opcode
 	sub	extra_args, rax
-	jnc	.next
-int3
-	add	extra_args, rax
-
-.next:	Instruct_next
+	jc	GRAB_extra
+	Instruct_next
 Instruct_size
 end Instruct
 
@@ -1448,6 +1445,29 @@ MAKEFLOATBLOCK_impl:
 	lea	accu, [alloc_small_ptr + accu * sizeof value]
 	Instruct_next
 display_num_ln "MAKEFLOATBLOCK_impl: ", $-MAKEFLOATBLOCK_impl
+
+
+GRAB_extra:
+	lea	rcx, [extra_args + rax + 1]
+	add	eax, 2
+	to_wosize rax
+	or	rax, Closure_tag
+	stos	Val_header[alloc_small_ptr]
+	mov	rsi, rsp
+	push	alloc_small_ptr
+	lea	rax, [vm_pc - 3 * sizeof opcode]
+	stos	qword[alloc_small_ptr]	; 0-е поле
+	mov	rax, env
+	stos	qword[alloc_small_ptr]	; 1-е поле
+rep	movs	qword[alloc_small_ptr], [rsi]
+	pop	accu
+	mov	rsp, rsi
+	pop	vm_pc
+	pop	env
+	pop	extra_args
+	Int_val	extra_args
+	Instruct_next
+display_num_ln "GRAB_extra: ", $-GRAB_extra
 
 ; При размещении блока, во время копирования аргументов замыкания со стека на кучу,
 ; возможен вызов сборщика мусора. Поскольку эти значения могут представлять собой
