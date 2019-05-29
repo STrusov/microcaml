@@ -866,27 +866,47 @@ end Instruct
 
 
 Instruct	SETFIELD0
-
+	pop	rax
+	mov	[accu + 0 * sizeof value], rax
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
 Instruct	SETFIELD1
-
+	pop	rax
+	mov	[accu + 1 * sizeof value], rax
+	mov	accu, Val_unit
 end Instruct
 
 
 Instruct	SETFIELD2
-
+	pop	rax
+	mov	[accu + 2 * sizeof value], rax
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
 Instruct	SETFIELD3
-
+	pop	rax
+	mov	[accu + 3 * sizeof value], rax
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
 Instruct	SETFIELD
-
+	pop	rax
+	mov	ecx, [opcode.1]
+	next_opcode
+	mov	[accu + rcx * sizeof value], rax
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
