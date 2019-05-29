@@ -195,9 +195,19 @@ C_primitive caml_array_set
 end C_primitive
 
 
-
+; Модифицирует ячейку массива.
+; RDI - адрес массива.
+; RSI - индекс элемента (OCaml value).
+; RDX - новое значение.
 C_primitive caml_array_set_addr
-
+	Int_val	rsi
+	js	caml_array_bound_error
+	mov	rcx, Val_header[rdi - sizeof value]
+	from_wosize rcx
+	cmp	rsi, rcx
+	jae	caml_array_bound_error
+	mov	[rdi + rsi * sizeof value], rdx
+	ret
 end C_primitive
 
 
