@@ -1300,7 +1300,13 @@ end Instruct
 
 
 Instruct	OFFSETREF
-
+	movsxd	rax, [opcode.1]
+	next_opcode
+	add	rax, rax
+	add	[accu + 0 * sizeof value], rax
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
