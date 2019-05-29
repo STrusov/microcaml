@@ -1211,7 +1211,10 @@ end Instruct
 
 
 Instruct	ANDINT
-
+	pop	rcx
+	and	accu, rcx
+	Instruct_next
+Instruct_size
 end Instruct
 
 
