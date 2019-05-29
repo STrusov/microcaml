@@ -1226,7 +1226,13 @@ end Instruct
 
 
 Instruct	LSLINT
-
+	pop	rcx
+	Int_val	rcx
+	dec	accu
+	shl	accu, cl
+	or	accu, Val_int_0
+	Instruct_next
+Instruct_size
 end Instruct
 
 
