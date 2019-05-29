@@ -1458,7 +1458,20 @@ purge BccINT
 
 
 Instruct	GETPUBMET
-
+Instruct_stub
+	mov	rax, [accu + 0 * sizeof value]
+	push	accu
+	mov	accud, [opcode.1]
+	Val_int	accud
+	mov	ecx, [opcode.2]
+	next_opcode 2
+	and	ecx, [rax + 1 * sizeof value]
+;	cmp	accud, [rax + 3 * sizeof value + rcx]
+;	jnz	.not_cached
+	mov	accu, [rax + 2 * sizeof value + rcx]
+	Instruct_next
+Instruct_size
+.not_cached:
 end Instruct
 
 
