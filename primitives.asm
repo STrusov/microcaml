@@ -2784,9 +2784,18 @@ caml_string_equal.cmp:
 end C_primitive
 
 
-
+; Возвращает один из символов строки.
+; RDI - адрес строки.
+; RSI - индекс символа (OCaml value).
 C_primitive caml_string_get
-
+	Int_val	rsi
+	js	caml_array_bound_error
+	caml_string_length	rdi, rcx, rax
+	cmp	rsi, rcx
+	jae	caml_array_bound_error
+	movzx	eax, byte[rdi + rsi]
+	Val_int	eax
+	ret
 end C_primitive
 
 
