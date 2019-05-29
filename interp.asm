@@ -1311,7 +1311,10 @@ end Instruct
 
 
 Instruct	ISINT
-
+	and	accu, 1
+	Val_int	accu
+	Instruct_next
+Instruct_size
 end Instruct
 
 
