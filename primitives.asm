@@ -2465,9 +2465,26 @@ C_primitive caml_obj_add_offset
 end C_primitive
 
 
-
+; Размещает в куче объект, все поля которого Val_long(0).
+; RDI - тэг (OCaml value)
+; RSI - размер (OCaml value) размещаемого в памяти блока в словах.
 C_primitive caml_obj_block
-
+	Int_val	rdi
+	Int_val	rsi
+	lea	rax, [Atom rdi]
+	jz	.exit
+	mov	rcx, rsi
+	to_wosize rsi
+	or	rdi, rsi
+	mov	Val_header[alloc_small_ptr_backup], rdi
+.@:	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
+	mov	qword[alloc_small_ptr_backup], Val_int 0
+	loopne	.@
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
+	from_wosize rsi
+	neg	rsi
+	lea	rax, [alloc_small_ptr_backup + rsi * sizeof value]
+.exit:	ret
 end C_primitive
 
 
