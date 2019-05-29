@@ -314,30 +314,45 @@ rep	movs	qword[rdi], [rsi]
 end C_primitive
 
 
+; Возвращает элемент массива (без проверки выхода за границы).
+; RDI - адрес массива.
+; RSI - индекс элемента (OCaml value).
 C_primitive caml_array_unsafe_get
-
+	cmp	byte[rdi - sizeof value], Double_array_tag
+	jz	caml_array_unsafe_get_float
+	Int_val	rsi
+	mov	rax, [rdi + rsi * sizeof value]
+	ret
 end C_primitive
 
 
-
+; Возвращает элемент массива вещественных чисел (без проверки выхода за границы).
+; RDI - адрес массива.
+; RSI - индекс элемента (OCaml value).
 C_primitive caml_array_unsafe_get_float
 
 end C_primitive
 
 
-
+; Модифицирует элемент массива (без проверки выхода за границы).
+; RDI - адрес массива.
+; RSI - индекс элемента (OCaml value);
+; RDX - новое значение.
 C_primitive caml_array_unsafe_set
-
+	cmp	byte[rdi - sizeof value], Double_array_tag
+	jz	caml_array_unsafe_set_float
+caml_array_unsafe_set_addr:
+	Int_val	rsi
+	mov	[rdi + rsi * sizeof value], rdx
+	mov	eax, Val_unit
+	ret
 end C_primitive
 
 
-
-C_primitive caml_array_unsafe_set_addr
-
-end C_primitive
-
-
-
+; Модифицирует элемент массива вещественных чисел (без проверки выхода за границы).
+; RDI - адрес массива.
+; RSI - индекс элемента (OCaml value);
+; RDX - новое значение.
 C_primitive caml_array_unsafe_set_float
 
 end C_primitive
