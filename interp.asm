@@ -1269,7 +1269,9 @@ end Instruct
 
 
 Instruct	LTINT
-
+	INTcc	L
+	Instruct_next
+Instruct_size
 end Instruct
 
 
