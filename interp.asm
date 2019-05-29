@@ -515,7 +515,15 @@ end Instruct
 
 
 Instruct	RESTART
-
+	mov	rcx, Val_header[env - sizeof value]
+	from_wosize ecx
+	sub	ecx, 2
+	add	extra_args, rcx
+.@:	push	[env + (2 + rcx - 1) * sizeof value]
+	loopnz	.@
+	mov	env, [env + 1 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
