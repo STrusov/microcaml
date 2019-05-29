@@ -1166,6 +1166,16 @@ proc	format_int_dec
 end proc
 
 
+; RDI - адрес объекта.
+C_primitive caml_set_oo_id
+	mov	rax, [oo_last_id]
+	mov	[rdi + 1 * sizeof value], rax
+	add	[oo_last_id], 2
+	mov	rax, rdi
+	ret
+end C_primitive
+
+
 ;CAMLprim value caml_fresh_oo_id (value v)
 ; RDI - value - игнорируется
 C_primitive caml_fresh_oo_id
@@ -2634,12 +2644,6 @@ end C_primitive
 
 
 C_primitive caml_runtime_variant
-
-end C_primitive
-
-
-
-C_primitive caml_set_oo_id
 
 end C_primitive
 
