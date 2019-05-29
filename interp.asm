@@ -943,7 +943,18 @@ end Instruct
 
 
 Instruct	SWITCH
-
+Instruct_stub
+	mov	ecx, [opcode.1]
+	next_opcode
+	test	accu, 1
+	jnz	.int
+int3
+.int:	mov	eax, accud
+	Int_val	eax
+	mov	eax, [vm_pc + rax * sizeof opcode]
+	lea	vm_pc, [vm_pc + rax * sizeof opcode]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
