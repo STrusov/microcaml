@@ -156,15 +156,13 @@ end C_primitive
 C_primitive caml_array_get_addr
 C_primitive_stub
 	Long_val rsi
-	js	.bound_error	; caml_array_bound_error
+	js	caml_array_bound_error
 	mov	rax, Val_header[rdi - sizeof value]
 	from_wosize rax
 	cmp	rax, rsi
-	jc	.bound_error
+	jc	caml_array_bound_error
 	mov	rax, [rdi + rsi * sizeof value]
 	ret
-.bound_error:
-	caml_invalid_argument	'Выход за пределы массива'
 end C_primitive
 
 
@@ -173,11 +171,11 @@ end C_primitive
 ; RSI - индекс элемента (OCaml value)
 C_primitive caml_array_get_float
 	Long_val rsi
-	js	caml_array_get_addr.bound_error	; caml_array_bound_error
+	js	caml_array_bound_error
 	mov	rax, Val_header[rdi - sizeof value]
 	from_wosize rax
 	cmp	rax, rsi
-	jc	caml_array_get_addr.bound_error
+	jc	caml_array_bound_error
 	mov	Val_header[alloc_small_ptr_backup], 1 wosize or Double_tag
 	mov	rax, [rdi + rsi * sizeof value]
 	mov	Val_header[alloc_small_ptr_backup + sizeof value], rax
@@ -186,6 +184,10 @@ C_primitive caml_array_get_float
 	ret
 end C_primitive
 
+
+proc caml_array_bound_error
+	caml_invalid_argument	'Выход за пределы массива'
+end proc
 
 
 C_primitive caml_array_set
