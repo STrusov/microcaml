@@ -337,8 +337,16 @@ Instruct	ENVACC4
 end Instruct
 
 
-Instruct	ENVACC
+macro envacc
+	mov	eax, [opcode.1]
+	mov	accu, [env + rax * sizeof value]
+	next_opcode
+end macro
 
+
+Instruct	ENVACC
+	envacc
+	Instruct_next
 end Instruct
 
 
@@ -372,7 +380,10 @@ end Instruct
 
 
 Instruct	PUSHENVACC
-
+	push	accu
+	envacc
+	Instruct_next
+Instruct_size
 end Instruct
 
 
