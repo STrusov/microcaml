@@ -700,13 +700,12 @@ end Instruct
 Instruct	ATOM0
 ;	адрес за заголовком
 	lea	accu, [Atom 0]
-	Instruct_next
-
 if HEAP_GC
+	jmp	.next
 ..heap_set_gc_start:
 	heap_set_gc_start_address
-	Instruct_next
 end if
+.next:	Instruct_next
 Instruct_size
 end Instruct
 
