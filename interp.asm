@@ -622,7 +622,12 @@ end Instruct
 
 
 Instruct	PUSHOFFSETCLOSURE
-
+	push	accu
+	movsxd	accu, [opcode.1]
+	next_opcode
+	lea	accu, [env + accu * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
