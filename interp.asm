@@ -975,18 +975,7 @@ end Instruct
 
 
 Instruct	SWITCH
-Instruct_stub
-	mov	ecx, [opcode.1]
-	next_opcode
-	test	accu, 1
-	jnz	.int
-int3
-.int:	mov	eax, accud
-	Int_val	eax
-	mov	eax, [vm_pc + rax * sizeof opcode]
-	lea	vm_pc, [vm_pc + rax * sizeof opcode]
-	Instruct_next
-Instruct_size
+	jmp	SWITCH_impl
 end Instruct
 
 
@@ -1508,6 +1497,21 @@ end Instruct
 ;Instruct	FIRST_UNIMPLEMENTED_OP
 
 ;end Instruct
+
+
+SWITCH_impl:
+	movzx	ecx, word[opcode.1]
+	next_opcode
+	mov	eax, accud
+	Int_val	eax
+	test	accu, 1
+	jnz	.int
+	movzx	eax, byte[accud - sizeof value]	; тег
+	add	eax, ecx
+.int:	mov	eax, [vm_pc + rax * sizeof opcode]
+	lea	vm_pc, [vm_pc + rax * sizeof opcode]
+	Instruct_next
+display_num_ln "SWITCH_impl: ", $-SWITCH_impl
 
 
 ; Процедура читает со стека ссылки на вещественные числа и переносит значения
