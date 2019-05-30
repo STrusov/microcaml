@@ -54,5 +54,6 @@
 * basic/bigints.ml
 * basic/equality.ml
 * basic/float_physical_equality.ml
+* basic/includestruct.ml
 * basic/stringmatch.ml
 * basic/tailcalls.ml
