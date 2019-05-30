@@ -518,7 +518,6 @@ end Instruct
 
 
 Instruct	RETURN
-Instruct_stub
 	mov	eax, [opcode.1]
 	next_opcode
 	lea	vm_sp, [vm_sp + rax * sizeof value]
@@ -530,7 +529,8 @@ Instruct_stub
 	Long_val extra_args
 	Instruct_next
 .extra_args:
-int3
+	dec	extra_args
+	jmp	Instruct_APPTERM1.br
 Instruct_size
 end Instruct
 
