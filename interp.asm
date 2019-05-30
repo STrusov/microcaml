@@ -1639,13 +1639,14 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 ;	замыкания нулевое (иначе он произошёл бы выше). Данное сохранение адреса
 ;	(в первой итерации цикла) на стеке должно обеспечить его безопасность.
 .cpp:	push	alloc_small_ptr
-	movsxd	rax, [opcode.1]
+	movsxd	rax, [vm_pc + rcx * sizeof opcode]
 	lea	rax, [vm_pc + rax * sizeof opcode]
-	next_opcode
 	stos	qword[alloc_small_ptr]
 	inc	ecx
 	cmp	ecx, r8d
 	jc	.cpi
+;	next_opcode r8
+	lea	vm_pc, [vm_pc + r8 * sizeof opcode]
 	mov	alloc_small_ptr, rsi
 	Instruct_next	
 display_num_ln "CLOSUREREC_impl: ", $-CLOSUREREC_impl
