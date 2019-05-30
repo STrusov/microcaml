@@ -55,5 +55,8 @@
 * basic/equality.ml
 * basic/float_physical_equality.ml
 * basic/includestruct.ml
+* basic/localexn.ml
+* basic/maps.ml
+* basic/sets.ml
 * basic/stringmatch.ml
 * basic/tailcalls.ml
