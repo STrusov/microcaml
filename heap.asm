@@ -323,7 +323,7 @@ b_index	equ rsi
 	jae	.search_block
 ;	Найдена ссылка на объект в куче. Промаркируем объект индексом ссылки.
 ;	Индекс ссылки, находящейся в теле блока в куче, по значению д.б. больше
-;	чем размер стека - т.о. они различаются на стадии уплотнения.
+;	размера стека, либо отрицательный - так они различаются на стадии уплотнения.
 ;	Вычисляется как расстояние (в sizeof value) от адресуемого объекта
 ;	до места хранения ссылки + размер стека (в sizeof value).
 b_ref	equ rdx
@@ -331,9 +331,12 @@ ref_idx	equ r11
 hdr	equ r14
 	lea	ref_idx, [b_base + b_index * sizeof value]
 	sub	ref_idx, b_ref
+;	Отрицательные смещения будут обработаны особо и корерктировки не требуеют.
+	jc	.out_of_stack
 ;	Сдвиги можно оптимизировать, поскольку адреса кратны 8.
 ;	shr	ref_idx, 3	; / 8
 	lea	ref_idx, [ref_idx + s_size * sizeof value]
+.out_of_stack:
 	shl	ref_idx, bsr (Max_wosize+1) + wosize_shift - 3
 	mov	hdr, .mark_mask
 	test	hdr, Val_header[b_ref - sizeof value]
@@ -418,9 +421,11 @@ restore s_index
 	stos	Val_header[alloc_small_ptr]
 .correct_link:
 ;	Определяем по маркеру адрес ссылки на блок.
-	shr	rcx, ..Mark_shift
+	sar	rcx, ..Mark_shift
 ;	Элементы с индексом s_size и выше находятся за пределами стека. Для них
 ;	ссылка расположена в куче и находится по смещению от копируемого блока.
+;	Отрицательный индекс обрабатываем отдельно.
+	js	.negative_idx
 	zero	rdx
 	cmp	rcx, s_size
 	cmovnc	rdx, s_size
@@ -434,10 +439,11 @@ restore s_index
 	mov	[s_base + rcx * sizeof value], alloc_small_ptr
 ;	Обрабатываем список ссылок, копирование блока произойдёт по его завершении.
 	jnz	.next_link
+.copy_block:
 	mov	rcx, rax
 	from_wosize rcx
 ;	Что бы не адресовать ячейки за пределами отображённых страниц памяти,
-;	cкорректируем размер для блоков, размещённых частично.
+;	скорректируем размер для блоков, размещённых частично.
 	lea	rcx, [rsi + rcx * sizeof value]
 	cmp	rcx, [heap_descriptor.uncommited]
 	cmovnc	rcx, [heap_descriptor.uncommited]
@@ -448,6 +454,23 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 .next_link:
 	mov	rcx, rdx
 	jmp	.correct_link
+.negative_idx:
+;	В случае отрицательного индекса объект, где следует скорректировать
+;	ссылку, на данном этапе смещён в сторону младших адресов по неизвестному
+;	адресу (в следствии уплотнения за счёт отброса "мёртвых" объектов).
+;	Выполним поиск ячейки со ссылкой, предположив, что расстояние
+;	между объектами не изменилось (на практике оно уменьшается).
+	lea	rcx, [rdi + rcx * sizeof value]
+.find_link:
+	cmp	[rcx], rsi
+	jz	.found_link
+	add	rcx, sizeof value
+	cmp	rcx, rsi
+	jc	.find_link
+ud2;	не найдено
+.found_link:
+	mov	[rcx], alloc_small_ptr
+	jmp	.copy_block
 .compact_end:
 restore s_base
 restore s_size
