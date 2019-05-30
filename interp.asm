@@ -549,7 +549,6 @@ end Instruct
 
 
 Instruct	GRAB
-Instruct_stub
 	mov	eax, [opcode.1]
 	next_opcode
 	sub	extra_args, rax
@@ -564,7 +563,6 @@ end Instruct
 ; 1. Количество аргументов замыкания;
 ; 2. Относительный адрес замыкания (смещение для счётчика инструкций).
 Instruct	CLOSURE
-Instruct_stub
 	jmp	CLOSURE_impl
 Instruct_size
 end Instruct
@@ -577,7 +575,6 @@ end Instruct
 ; 3.. функторы;
 ;     адрес замыкания.
 Instruct	CLOSUREREC
-Instruct_stub
 	jmp	CLOSUREREC_impl
 Instruct_size
 end Instruct
