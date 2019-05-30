@@ -323,7 +323,9 @@ end Instruct
 
 
 Instruct	ENVACC2
-
+	mov	accu, [env + 2 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
@@ -335,7 +337,9 @@ end Instruct
 
 
 Instruct	ENVACC4
-
+	mov	accu, [env + 4 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
