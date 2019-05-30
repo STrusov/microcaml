@@ -1331,7 +1331,9 @@ end Instruct
 
 
 Instruct	GEINT
-
+	INTcc	GE
+	Instruct_next
+Instruct_size
 end Instruct
 
 
