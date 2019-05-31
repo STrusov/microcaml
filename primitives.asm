@@ -2540,15 +2540,34 @@ C_primitive caml_obj_reachable_words
 end C_primitive
 
 
-
+; Задаёт тег объекту.
+; RDI - адрес объекта;
+; RSI - новый тег (OCaml value).
 C_primitive caml_obj_set_tag
-
+	Int_val	esi
+	mov	byte[rdi - sizeof value], sil
+	mov	eax, Val_unit
+	ret
 end C_primitive
 
 
-
+; Возвращает тег объекта, либо налог для значений вне кучи.
+; RDI - адрес объекта
 C_primitive caml_obj_tag
-
+	mov	eax, Val_int 1000	; int_tag
+	test	edi, 1
+	jnz	.exit
+	mov	eax, Val_int 1002	; unaligned_tag
+	test	edi, sizeof value - 7
+	jnz	.exit
+	mov	eax, Val_int 1001	; out_of_heap_tag
+	cmp	rdi, heap_small
+	jc	.exit
+	cmp	rdi, alloc_small_ptr_backup	; [heap_descriptor.uncommited]
+	jnc	.exit
+	movzx	eax, byte[rdi - sizeof value]
+	Val_int	eax
+.exit:	ret
 end C_primitive
 
 
