@@ -1867,11 +1867,7 @@ C_primitive caml_md5_string
 end C_primitive
 
 
-
-C_primitive caml_ml_bytes_length
-
-end C_primitive
-
+caml_ml_bytes_length := caml_ml_string_length
 
 
 C_primitive caml_ml_channel_size
