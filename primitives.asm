@@ -475,11 +475,7 @@ C_primitive caml_bytes_notequal
 end C_primitive
 
 
-
-C_primitive caml_bytes_set
-
-end C_primitive
-
+caml_bytes_set := caml_string_set
 
 
 C_primitive caml_ceil_float
@@ -2796,6 +2792,22 @@ C_primitive caml_string_get
 end C_primitive
 
 
+; Модифицирует один из символов строки.
+; RDI - адрес строки;
+; RSI - индекс символа (OCaml value);
+; EDX - новое значение.
+C_primitive caml_string_set
+	Int_val	rsi
+	js	caml_array_bound_error
+	caml_string_length	rdi, rcx, rax
+	cmp	rsi, rcx
+	jae	caml_array_bound_error
+	Int_val	edx
+	mov	[rdi + rsi], dl
+	Val_int	eax
+	ret
+end C_primitive
+
 
 C_primitive caml_string_get16
 
@@ -2836,13 +2848,6 @@ end C_primitive
 C_primitive caml_string_lessthan
 
 end C_primitive
-
-
-
-C_primitive caml_string_set
-
-end C_primitive
-
 
 
 C_primitive caml_string_set16
