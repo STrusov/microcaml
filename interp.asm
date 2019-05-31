@@ -1510,11 +1510,11 @@ end Instruct
 SWITCH_impl:
 	movzx	ecx, word[opcode.1]
 	next_opcode
-	mov	eax, accud
-	Int_val	eax
-	test	accu, 1
+	mov	rax, accu
+	Int_val	rax
+	test	accud, 1
 	jnz	.int
-	movzx	eax, byte[accud - sizeof value]	; тег
+	movzx	eax, byte[accu - sizeof value]	; тег
 	add	eax, ecx
 .int:	mov	eax, [vm_pc + rax * sizeof opcode]
 	lea	vm_pc, [vm_pc + rax * sizeof opcode]
