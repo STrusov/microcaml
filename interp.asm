@@ -1198,7 +1198,10 @@ end Instruct
 
 
 Instruct	NEGINT
-
+	neg	accu
+	add	accu, 2
+	Instruct_next
+Instruct_size
 end Instruct
 
 
