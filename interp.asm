@@ -930,7 +930,11 @@ end Instruct
 
 
 Instruct	GETVECTITEM
-
+	pop	rcx	; индекс элемента
+	Int_val	rcx
+	mov	accu, [accu + rcx * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
