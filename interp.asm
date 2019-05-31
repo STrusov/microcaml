@@ -1446,7 +1446,9 @@ end Instruct
 
 
 Instruct	BUGEINT
-
+	BccINT	AE	; nc
+	Instruct_next
+Instruct_size
 end Instruct
 
 
