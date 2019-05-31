@@ -1264,11 +1264,7 @@ C_primitive caml_gc_major_slice
 end C_primitive
 
 
-
-C_primitive caml_gc_minor
-
-end C_primitive
-
+caml_gc_minor := caml_gc_full_major
 
 
 C_primitive caml_gc_minor_words
