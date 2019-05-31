@@ -341,7 +341,13 @@ end C_primitive
 ; RDI - адрес массива.
 ; RSI - индекс элемента (OCaml value).
 C_primitive caml_array_unsafe_get_float
-
+;	Формируем в куче блок с вещественным числом и возвращаем его адрес.
+	mov	Val_header[alloc_small_ptr_backup], 1 wosize + Double_tag
+	mov	rax, [rdi]
+	mov	[alloc_small_ptr_backup + sizeof value], rax
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
 end C_primitive
 
 
