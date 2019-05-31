@@ -945,7 +945,14 @@ end Instruct
 
 
 Instruct	SETSTRINGCHAR
-
+	pop	rcx	; индекс в строке
+	pop	rax	; символ
+	Int_val	rcx
+	Int_val	eax
+	mov	[accu + rcx], al
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 ; Переходы, в том числе условные
