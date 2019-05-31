@@ -460,24 +460,32 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 ;	адресу (в следствии уплотнения за счёт отброса "мёртвых" объектов).
 ;	Выполним поиск ячейки со ссылкой, предположив, что расстояние
 ;	между объектами не изменилось (на практике оно уменьшается).
+;	Вместо ссылки может храниться маркер с индексом следующей ссылки на данный
+;	блок. Будем искать копию соответствующей ячейки источника. Определение типа
+;	выполним позже, после замены содержимого ячейки скорректированной ссылкой.
+	mov	rdx, [rsi + rcx * sizeof value]
 	lea	rcx, [rdi + rcx * sizeof value]
 .find_link:
-	cmp	[rcx], rsi
+	cmp	[rcx], rdx
 	jz	.found_link
 	add	rcx, sizeof value
-	cmp	rcx, rsi
+	cmp	rcx, rdi	; далее находятся необработанные объекты.
 	jc	.find_link
 ud2;	не найдено
+.empty_block:
+ud2
 .found_link:
 	mov	[rcx], alloc_small_ptr
-	jmp	.copy_block
+;	В случае ссылки скопируем остаток блока.
+	cmp	rdx, rsi
+	jz	.copy_block
+;	Маркер с индексом следующей ссылки на данный блок требует обработки
+;	связного списка ссылок (см. .next_link:)
+	mov	rcx, rdx
+	jmp	.correct_link
 .compact_end:
 restore s_base
 restore s_size
 restore gc_end
 	ret
-
-.empty_block:
-int3
-nop
 end proc
