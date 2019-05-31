@@ -57,6 +57,7 @@
 * basic/includestruct.ml
 * basic/localexn.ml
 * basic/maps.ml
+* basic/recvalues.ml
 * basic/sets.ml
 * basic/stringmatch.ml
 * basic/tailcalls.ml
