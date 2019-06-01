@@ -575,9 +575,17 @@ C_primitive caml_create_string
 end C_primitive
 
 
-
+; Возвращает частное от деления 2-х вещественных чисел.
+; RDI - адрес делимого;
+; RSI - адрес делителя.
 C_primitive caml_div_float
-
+	mov	Val_header[alloc_small_ptr_backup], 1 wosize + Double_tag
+	movsd	xmm0, [rdi]
+	divsd	xmm0, [rsi]
+	movsd	[alloc_small_ptr_backup + sizeof value], xmm0
+	lea	rax, [alloc_small_ptr_backup + 1 * sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
 end C_primitive
 
 
