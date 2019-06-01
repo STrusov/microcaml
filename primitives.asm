@@ -1126,17 +1126,84 @@ C_primitive caml_fmod_float
 end C_primitive
 
 
+Negative_double	:= 0x8000000000000000	; знак в 63-м бите, согласно IEEE 754
+Infinity	:= 0x7ff0000000000000
+;NaN		:= 0x7fffffffffffffff
+NaN		:= 0x7ff0000000000001
 
+; Преобразует вещественное число в OCaml-строку (с заголовком) согласно формата.
+; RDI - формат вывода;
+; RSI - вещественное число (в OCaml-представлении).
 C_primitive caml_format_float
-
+;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
+	mov	qword[alloc_small_ptr_backup], String_tag
+	push	alloc_small_ptr_backup
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
+;	в pervasives.ml string_of_float вызывает format_float с "%.12g"
+;	однако, функция вызывается со следующей строкой формата:
+	cmp	dword[rdi], '%.6f'
+	jnz	.fmt
+	mov	rdx, [rsi]
+;	Поскольку sprintf различает 0.0 и -0.0, inf и -inf,
+;	определим знак числа и выведем символ '-' для отрицательных.
+	mov	rax, Negative_double
+	test	[rsi], rax
+	jz	.positive
+	mov	byte[alloc_small_ptr_backup], '-'
+	inc	alloc_small_ptr_backup
+	not	rax
+	and	rdx, rax	; абсолютное значение числа
+.positive:
+	mov	rax, Infinity
+	cmp	rdx, rax
+	jz	.infinity
+	mov	rax, NaN
+	cmp	rdx, rax
+	jz	.nan
+	movq	xmm0, rdx
+;	Выделяем целую часть, округляя к 0, и форматируем её в строку.
+	cvttsd2si rsi, xmm0
+	call	format_nativeint_dec
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rdi]
+;	Выделяем 6 знаков дробной части абсолютного значения числа.
+	cvttsd2si rax, xmm0
+	cvtsi2sd xmm1, rax
+	subsd	xmm0, xmm1	; дробная часть
+	mov	eax, 1000000
+	cvtsi2sd xmm1, eax
+	mulsd	xmm0, xmm1
+;	Преобразуем без усечения, иначе 0.1 -> 0.09999.
+;	.1234567 выводится как .123457, что соотвествует sprintf (и OCaml).
+	cvtsd2si esi, xmm0
+;	format_nativeint_dec не выводит незначащие нули,
+;	создаём фиктивный значащий старший разряд, что бы вывести остальные.
+	add	esi, eax
+;	Выводим число, содержащее требуемую дробную часть.
+	call	format_nativeint_dec
+;	Располагаем десятичную точку (OCaml не использует локализацию?)
+;	поверх единицы в старшем разряде, полученной прибавлением 1000000 ранее.
+	mov	byte[alloc_small_ptr_backup], '.'
+.exit:	mov	rdi, alloc_small_ptr_backup
+	pop	alloc_small_ptr_backup
+	sub	rdi, alloc_small_ptr_backup
+	jmp	caml_alloc_string
+.infinity:
+	mov	dword[alloc_small_ptr_backup], 'inf'
+	add	alloc_small_ptr_backup, 3
+	jmp	.exit
+.nan:	mov	dword[alloc_small_ptr_backup], 'nan'
+	add	alloc_small_ptr_backup, 3
+	jmp	.exit
+.fmt:
+int3
 end C_primitive
 
 
-; Преобразует числов в OCaml-строку (с заголовком) согласно формата.
+; Преобразует число в OCaml-строку (с заголовком) согласно формата.
 ; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
 ; RSI - целое (в OCaml-представлении).
 C_primitive caml_format_int
-;	Создаём заголовок с нулевой длиной. Скоректируем её по готовности строки.
+;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
 	mov	qword[alloc_small_ptr_backup], String_tag
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
 ;	в pervasives.ml встречается только %d (см. string_of_int)
@@ -1150,12 +1217,15 @@ int3
 end C_primitive
 
 
-; Преобразует числов в текстовую форму, располагая строку в текущие адреса кучи.
+; Преобразует число в текстовую форму, располагая строку в текущие адреса кучи.
 ; Возвращает в RDI длину строки-результата.
 ; RSI - знаковое целое (в OCaml-представлении).
 proc	format_int_dec
-	zero	ecx
 	Int_val rsi
+; RSI - знаковое целое.
+format_nativeint_dec:
+	zero	ecx
+	test	rsi, rsi
 	jns	.pos
 	neg	rsi
 	mov	byte[alloc_small_ptr_backup + rcx], '-'
