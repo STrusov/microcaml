@@ -53,6 +53,7 @@
 * basic/arrays.ml
 * basic/bigints.ml
 * basic/equality.ml
+* basic/float.ml
 * basic/float_physical_equality.ml
 * basic/includestruct.ml
 * basic/localexn.ml
