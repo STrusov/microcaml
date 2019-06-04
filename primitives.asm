@@ -1611,6 +1611,8 @@ C_primitive caml_int32_xor
 end C_primitive
 
 
+; Значение хранится в 1-м поле блока (после 0-го - с адресом методов).
+int64_val equ (1 * sizeof value)
 
 C_primitive caml_int64_add
 
@@ -1651,7 +1653,7 @@ end C_primitive
 C_primitive caml_int64_float_of_bits
 	mov	eax, 1 wosize or Double_tag
 	mov	[alloc_small_ptr_backup], rax
-	mov	rax, [rdi]
+	mov	rax, [int64_val + rdi]
 	mov	[alloc_small_ptr_backup + sizeof value], rax
 	lea	rax, [alloc_small_ptr_backup + sizeof value]
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]

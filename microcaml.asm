@@ -569,21 +569,48 @@ rep	movs	qword[intern_dest], [rsi]
 	jmp	.read_block
 
 .code_custom:
-;	В блоке DATA пока встречается только тип '_j' (см. caml_int64_ops).
+;	В блоке DATA пока встречаются типы:
+;	'_j' (см. caml_int64_ops)
+;	'_n' (см. caml_nativeint_ops)
 ;	Реализуем десериализацию непосредственно, без custom_operations.
 	lods	word[rsi]
-	cmp	ax, '_j'
-;	puts	rsi
-	jnz	.unsupported_yet
-;	int64_deserialize()
 	inc	rsi
+	cmp	ax, '_j'
+	jz	._j
+	cmp	ax, '_n'
+	jz	._n
+.uncb:	lea	rsi, [rsi - 3]
+	puts	rsi
+	puts	error_unsupported_custom_block
+	mov	edi, -EINVAL
+	jmp	sys_exit
+._j:;	int64_deserialize()
 	mov	rax, (1 + 1) wosize or Custom_tag
 	stos	Val_header[intern_dest]
+	push	intern_dest
 	lea	rax, [caml_int64_ops]
 	stos	qword[intern_dest]
-	push	intern_dest
-	lods	qword[rsi]
+._j8:	lods	qword[rsi]
 	bswap	rax
+	stos	qword[intern_dest]
+	pop	rax
+	jmp	.read_obj_ok
+._n:;	nativeint_deserialize()
+	mov	rax, (1 + 1) wosize or Custom_tag
+	stos	Val_header[intern_dest]
+	push	intern_dest
+	lea	rax, [caml_nativeint_ops]
+	stos	qword[intern_dest]
+	lods	byte[rsi]
+	dec	al
+	jz	._i4
+	dec	al
+	jz	._j8
+	dec	rsi
+	jmp	.uncb
+._i4:	lods	dword[rsi]
+	bswap	eax
+	cdqe
 	stos	qword[intern_dest]
 	pop	rax
 	jmp	.read_obj_ok
@@ -650,6 +677,15 @@ caml_int64_ops:
 	.deserialize	dq 0 ;int64_deserialize,
 	.compare_ext	dq 0 ;custom_compare_ext_default
 
+caml_nativeint_ops:
+	.identifier	dq "_n"	; в оригинале указатель на строку
+	.finalize	dq 0 ;custom_finalize_default
+	.compare	dq 0 ;nativeint_cmp,
+	.hash		dq 0 ;nativeint_hash,
+	.serialize	dq 0 ;nativeint_serialize,
+	.deserialize	dq 0 ;nativeint_deserialize,
+	.compare_ext	dq 0 ;custom_compare_ext_default
+
 ; caml_builtin_cprim
 include 'primitives.inc'
 
@@ -664,6 +700,7 @@ error_bytecode_invalid	db ' Невалидный формат', 10, 0
 error_bytecode_dlls	db 'Примитивы во внешних библиотеках пока не поддерживаются', 10, 0
 error_datasection_sig	db 'Недействительная секция данных', 10, 0
 error_unsupported_data	db ' Неподдерживаемый блок в секции DATA', 10, 0
+error_unsupported_custom_block	db ' - неподдерживаемый пользовательский тип в секции DATA', 10, 0
 error_sigsegv_nohandler	db 'Не установлен обработчик '
 error_sigsegv_handler	db 'SIGSEGV', 10, 0
 
