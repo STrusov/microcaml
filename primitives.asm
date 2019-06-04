@@ -1802,11 +1802,119 @@ C_primitive caml_int_of_float
 end C_primitive
 
 
+; Возвращает целое число, сконвертированное из текстового представления.
+; RDI - адрес строки;
+; CL - количество значащих разрядов результата.
+proc parse_intnat
+;base	equ rsi
+sign	equ r8
+over	equ r9
+	push	rdi
+	zero	sign
+	cmp	byte[rdi], '+'
+	jz	.sign
+	cmp	byte[rdi], '-'
+	jnz	.positive
+	inc	sign
+.sign:	inc	rdi
+.positive:
+;	По умолчанию числа десятичные знаковые.
+;	Проверим наличие префикса с основанием системы счисления.
+	cmp	byte[rdi], '0'
+	jnz	.s10
+	mov	al, [rdi + 1]
+	and	al, not ('a' xor 'A')
+	add	rdi, 2
+	mov	esi, 16
+	cmp	al, 'X'
+	jz	._1
+	mov	esi, 8
+	cmp	al, 'O'
+	jz	._1
+	mov	esi, 2
+	cmp	al, 'B'
+	jz	._1
+	cmp	al, 'U'
+	jz	.u10
+	sub	rdi, 2
+;	Один разряд занимает знак числа. Для знаковых чисел он д.б. 0,
+;	поскольку проверка выполняется до смены знака.
+.s10:	dec	cl
+.u10:	mov	esi, 10
+._1:;	Маска содержит 1 в разрядах, запрещённых для результата.
+	or	over, -1
+	shl	over, cl
+	mov	al, [rdi]
+	inc	rdi
+	sub	eax, '0'
+	jc	.fail
+	cmp	al, 9
+	jbe	._1d
+	and	al, not (('a' - '0') xor ('A' - '0'))
+	sub	al, 'A' - '0'
+	jc	.fail
+	cmp	al, 0Fh
+	ja	.fail
+._1d:	movzx	edx, al
+	cmp	edx, esi
+	ja	.fail
+.next:	mov	al, [rdi]
+	inc	rdi
+	cmp	al, '_'
+	jz	.next
+	sub	al, '0'
+	jc	.done
+	cmp	al, 9
+	jbe	.dgt
+	and	al, not (('a' - '0') xor ('A' - '0'))
+	sub	al, 'A' - '0'
+	jc	.done
+	cmp	al, 0Fh
+	ja	.done
+.dgt:	movzx	ecx, al
+	cmp	ecx, esi
+	ja	.done
+	mov	rax, rdx
+	mul	rsi
+;	Умножение на основание системы счисления может вызвать переполнение.
+	jo	.fail
+	add	rax, rcx
+;	Возможно переполнение после сложения.
+	jc	.fail
+	mov	rdx, rax
+	jmp	.next
+.done:	mov	rax, rdx
+;	Даже если число знаковое, бит знака на данном этапе доложен быть 0.
+	test	rax, over
+	jnz	.fail
+	pop	rsi
+	caml_string_length rsi, rcx, rdx
+	dec	rdi
+	sub	rdi, rcx
+	cmp	rsi, rdi
+	jnz	.fail2
+; 	Меняем знак, если установлен соответствующий признак.
+	zero	rdx
+	sub	rdx, rax
+	test	sign, sign
+	cmovnz	rax, rdx
+	ret
+.fail:	pop	rdi
+.fail2:	;caml_failwith ***
+	caml_invalid_argument 'parse_intnat'
+restore	over
+restore	sign
+end proc
 
+
+; Возвращает целое OCaml value, сконвертированное из текстового представления.
+; RDI - адрес строки.
 C_primitive caml_int_of_string
-
+	mov	cl, sizeof value * 8 - 1
+	call	parse_intnat
+	Val_int	rax
+	ret
 end C_primitive
-
 
 
 C_primitive caml_invoke_traced_function
