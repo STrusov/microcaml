@@ -1145,8 +1145,8 @@ NaN		:= 0x7ff0000000000001
 C_primitive caml_format_float
 ;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
 	mov	qword[alloc_small_ptr_backup], String_tag
-	push	alloc_small_ptr_backup
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
+	push	alloc_small_ptr_backup
 ;	в pervasives.ml string_of_float вызывает format_float с "%.12g"
 ;	однако, функция вызывается со следующей строкой формата:
 	cmp	dword[rdi], '%.6f'
@@ -1191,16 +1191,17 @@ C_primitive caml_format_float
 ;	Располагаем десятичную точку (OCaml не использует локализацию?)
 ;	поверх единицы в старшем разряде, полученной прибавлением 1000000 ранее.
 	mov	byte[alloc_small_ptr_backup], '.'
-.exit:	mov	rdi, alloc_small_ptr_backup
+.exit:	add	rdi, alloc_small_ptr_backup
 	pop	alloc_small_ptr_backup
 	sub	rdi, alloc_small_ptr_backup
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
 	jmp	caml_alloc_string
 .infinity:
 	mov	dword[alloc_small_ptr_backup], 'inf'
-	add	alloc_small_ptr_backup, 3
+	mov	edi, 3
 	jmp	.exit
 .nan:	mov	dword[alloc_small_ptr_backup], 'nan'
-	add	alloc_small_ptr_backup, 3
+	mov	edi, 3
 	jmp	.exit
 .fmt:
 int3
