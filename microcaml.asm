@@ -391,6 +391,7 @@ CODE_BLOCK32		:= 0x8
 CODE_SHARED16		:= 0x5
 CODE_SHARED8		:= 0x4
 CODE_INT64		:= 0x3
+CODE_INT32		:= 0x2
 CODE_INT16		:= 0x1
 CODE_INT8		:= 0x0
 	cmp	rsp, rbp
@@ -421,6 +422,8 @@ CODE_INT8		:= 0x0
 	jz	.code_int8
 	cmp	al, CODE_INT16
 	jz	.code_int16
+	cmp	al, CODE_INT32
+	jz	.code_int32
 	cmp	al, CODE_INT64
 	jz	.code_int64
 	cmp	al, CODE_SHARED8
@@ -451,6 +454,12 @@ CODE_INT8		:= 0x0
 	shl	eax, 8
 	lods	byte[rsi]
 	movsx	rax, ax
+	jmp	.read_int_ok
+
+.code_int32:
+	lods	dword[rsi]
+	bswap	eax
+	cdqe
 	jmp	.read_int_ok
 
 .code_int64:
