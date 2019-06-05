@@ -52,6 +52,7 @@
 
 * basic/arrays.ml
 * basic/bigints.ml
+* basic/constprop.ml
 * basic/divint.ml
 * basic/equality.ml
 * basic/float.ml
