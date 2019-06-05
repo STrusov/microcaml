@@ -1279,12 +1279,18 @@ end Instruct
 
 
 Instruct	ORINT
-
+	pop	rcx
+	or	accu, rcx
+	Instruct_next
+Instruct_size
 end Instruct
 
 
 Instruct	XORINT
-
+	pop	rcx
+	xor	accu, rcx
+	Instruct_next
+Instruct_size
 end Instruct
 
 
@@ -1310,7 +1316,12 @@ end Instruct
 
 
 Instruct	ASRINT
-
+	pop	rcx
+	Int_val	rcx
+	sar	accu, cl
+	or	accu, Val_int_0
+	Instruct_next
+Instruct_size
 end Instruct
 
 
@@ -1345,7 +1356,9 @@ end Instruct
 
 
 Instruct	LEINT
-
+	INTcc	LE
+	Instruct_next
+Instruct_size
 end Instruct
 
 
