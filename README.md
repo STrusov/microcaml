@@ -52,6 +52,7 @@
 
 * basic/arrays.ml
 * basic/bigints.ml
+* basic/divint.ml
 * basic/equality.ml
 * basic/float.ml
 * basic/float_physical_equality.ml
