@@ -800,10 +800,12 @@ val2	equ rsi
 	ja	.custom_tag
 ud2
 .custom_tag:
-;	Версия только для nativeint и без чтения таблицы методов.
-	lea	rax, [caml_nativeint_ops]
-	cmp	rax, [rdi]
-	jnz	.arbitrary_ptr
+;	Версия только для nativeint, int64 и int32; без чтения таблицы методов.
+	mov	rax, [rdi]
+	lea	rdx, [caml_nativeint_ops]
+	sub	rax, rdx
+	cmp	rax, caml_int32_ops - caml_nativeint_ops
+	ja	.arbitrary_ptr
 	mov	rdi, [rdi + nativeint_val]
 	mov	rsi, [rsi + nativeint_val]
 .arbitrary_ptr:
@@ -1485,15 +1487,48 @@ C_primitive caml_install_signal_handler
 end C_primitive
 
 
+; 32-x разрядные целые числа. Располагаются в куче. Размер ячейки вдвое больше
+; такого числа. Приводим их к "родному" представлению для совместимости.
 
+; Формирует заголовок блока int32
+macro	int32_header
+	mov	Val_header[alloc_small_ptr_backup], (1 + 1) wosize or Custom_tag
+	lea	rax, [caml_int32_ops]
+	mov	[alloc_small_ptr_backup + 1 * sizeof value], rax
+end macro
+
+; Значение хранится в 1-м поле блока (после 0-го - с адресом методов).
+int32_val equ (1 * sizeof value)
+
+; Сохраняет результат в блоке, устанавливает адреса блока и аллокатора.
+macro	int32_ret result
+	mov	qword[alloc_small_ptr_backup + 2 * sizeof value], result
+	lea	rax, [int32_val + alloc_small_ptr_backup]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 3 * sizeof value]
+	ret
+end macro
+
+
+; Возвращает сумму двух целых.
+; RDI - адрес 1-го слагаемого;
+; RSI - адрес 2-го слагаемого.
 C_primitive caml_int32_add
-
+	int32_header
+	mov	eax, [int32_val + rdi]
+	add	eax, [int32_val + rsi]
+	cdqe
+	int32_ret rax
 end C_primitive
 
 
-
+; Возвращает результат поразрядной конъюнкции (И) двух целых.
+; RDI - адрес 1-го множителя;
+; RSI - адрес 2-го множителя.
 C_primitive caml_int32_and
-
+	int32_header
+	mov	eax, [int32_val + rdi]
+	and	eax, [int32_val + rsi]
+	int32_ret rax	; обнуляем незначащие разряды
 end C_primitive
 
 
@@ -1516,8 +1551,28 @@ end C_primitive
 
 
 
+; Возвращает частное от деления двух целых.
+; RDI - адрес делимого;
+; RSI - адрес делителя.
 C_primitive caml_int32_div
-
+	int32_header
+;!!!	Проверку делителя на 0 пока не выполняем.
+	mov	ecx, [int32_val + rsi]
+; 	При 32-х разрядном делении 0x80000000 на -1 генерируется SIGFPE,
+;	поскольку частное положительно и выходит за допустимый диапазон.
+;	Вернём в таком случае делимое (как в эталонной реализации).
+	mov	eax, [int32_val + rdi]
+	cmp	eax, 1 shl (sizeof value * 4 - 1)
+	jz	.max_neg
+.div:	cdq
+	idiv	ecx
+	cdqe
+	int32_ret rax
+.max_neg:
+	cmp	ecx, -1
+	jnz	.div
+	mov	rax, rdi
+	ret
 end C_primitive
 
 
@@ -1533,21 +1588,42 @@ C_primitive caml_int32_format
 end C_primitive
 
 
-
+; Возвращает остаток от деления (по модулю) двух целых.
+; RDI - адрес делимого;
+; RSI - адрес делителя.
 C_primitive caml_int32_mod
-
+	int32_header
+;!!!	Проверку делителя на 0 пока не выполняем.
+; 	При 32-х разрядном делении 0x80000000 на -1 генерируется SIGFPE (см. div).
+;	Используем 64-х разрядное.
+	movsxd	rcx, [int32_val + rsi]
+	movsxd	rax, [int32_val + rdi]
+	cqo
+	idiv	rcx
+	int32_ret rdx
 end C_primitive
 
 
-
+; Возвращает произведение двух целых.
+; RDI - адрес 1-го множителя;
+; RSI - адрес 2-го множителя.
 C_primitive caml_int32_mul
-
+	int32_header
+	mov	eax, [int32_val + rdi]
+	imul	dword[int32_val + rsi]
+	cdqe
+	int32_ret rax
 end C_primitive
 
 
-
+; Возвращает результат вычитания из 0 (смена знака) целого.
+; RDI - адрес целого;
 C_primitive caml_int32_neg
-
+	int32_header
+	mov	eax, [int32_val + rdi]
+	neg	eax
+	cdqe
+	int32_ret rax
 end C_primitive
 
 
@@ -1557,9 +1633,12 @@ C_primitive caml_int32_of_float
 end C_primitive
 
 
-
+; Возвращает адрес целого, полученного из OCaml value.
+; RDI - OCaml value
 C_primitive caml_int32_of_int
-
+	int32_header
+	Int_val	rdi
+	int32_ret rdi
 end C_primitive
 
 
@@ -1569,33 +1648,69 @@ C_primitive caml_int32_of_string
 end C_primitive
 
 
-
+; Возвращает результат поразрядной дизъюнкции (включающего ИЛИ) двух целых.
+; RDI - адрес 1-го слагаемого;
+; RSI - адрес 2-го слагаемого.
 C_primitive caml_int32_or
-
+	int32_header
+	mov	rax, [int32_val + rdi]
+	or	rax, [int32_val + rsi]
+	int32_ret rax
 end C_primitive
 
 
-
+; Сдвиг влево.
+; Возвращает адрес результата.
+; RDI - адрес сдвигаемого аргумента;
+; RSI - количество бит, на которое следует сдвинуть аргумент (OCaml value)
 C_primitive caml_int32_shift_left
-
+	int32_header
+	Int_val	esi
+	mov	ecx, esi
+	mov	eax, [int32_val + rdi]
+	shl	eax, cl
+	cdqe
+	int32_ret rax	; обнуляем незначащие разряды
 end C_primitive
 
 
-
+; Сдвиг вправо арифметический (с учётом знака).
+; Возвращает адрес результата.
+; RDI - адрес сдвигаемого аргумента;
+; RSI - количество бит, на которое следует сдвинуть аргумент (OCaml value)
 C_primitive caml_int32_shift_right
-
+	int32_header
+	Int_val	esi
+	mov	ecx, esi
+	mov	rax, [int32_val + rdi]
+	sar	rax, cl
+	int32_ret rax
 end C_primitive
 
 
-
+; Сдвиг вправо без учёта знака.
+; Возвращает адрес результата.
+; RDI - адрес сдвигаемого аргумента;
+; RSI - количество бит, на которое следует сдвинуть аргумент (OCaml value)
 C_primitive caml_int32_shift_right_unsigned
-
+	int32_header
+	Int_val	esi
+	mov	ecx, esi
+	mov	eax, [int32_val + rdi]
+	shr	eax, cl
+	int32_ret rax	; обнуляем незначащие разряды
 end C_primitive
 
 
-
+; Возвращает разность двух целых.
+; RDI - адрес уменьшаемого;
+; RSI - адрес вычитаемого.
 C_primitive caml_int32_sub
-
+	int32_header
+	mov	eax, [int32_val + rdi]
+	sub	eax, [int32_val + rsi]
+	cdqe
+	int32_ret rax
 end C_primitive
 
 
@@ -1605,15 +1720,23 @@ C_primitive caml_int32_to_float
 end C_primitive
 
 
-
+; Возвращает целое OCaml value, преобразованное из int32.
+; RDI - адрес целого числа.
 C_primitive caml_int32_to_int
-
+	movsxd	rax, [int32_val + rdi]
+	Val_int	rax
+	ret
 end C_primitive
 
 
-
+; Возвращает сумму по модулю 2 (исключающее ИЛИ) двух целых.
+; RDI - адрес 1-го слагаемого;
+; RSI - адрес 2-го слагаемого.
 C_primitive caml_int32_xor
-
+	int32_header
+	mov	rax, [int32_val + rdi]
+	xor	rax, [int32_val + rsi]
+	int32_ret rax
 end C_primitive
 
 

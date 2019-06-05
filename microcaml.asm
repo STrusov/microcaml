@@ -579,6 +579,8 @@ rep	movs	qword[intern_dest], [rsi]
 	jz	._j
 	cmp	ax, '_n'
 	jz	._n
+	cmp	ax, '_i'
+	jz	._i
 .uncb:	lea	rsi, [rsi - 3]
 	puts	rsi
 	puts	error_unsupported_custom_block
@@ -608,6 +610,12 @@ rep	movs	qword[intern_dest], [rsi]
 	jz	._j8
 	dec	rsi
 	jmp	.uncb
+._i:;	int32_deserialize()
+	mov	rax, (1 + 1) wosize or Custom_tag
+	stos	Val_header[intern_dest]
+	push	intern_dest
+	lea	rax, [caml_nativeint_ops]
+	stos	qword[intern_dest]
 ._i4:	lods	dword[rsi]
 	bswap	eax
 	cdqe
@@ -668,6 +676,15 @@ channel_operations:
 	.deserialize	dq 0 ;custom_deserialize_default,
 	.compare_ext	dq 0 ;custom_compare_ext_default
 
+caml_nativeint_ops:
+	.identifier	dq "_n"	; в оригинале указатель на строку
+	.finalize	dq 0 ;custom_finalize_default
+	.compare	dq 0 ;nativeint_cmp,
+	.hash		dq 0 ;nativeint_hash,
+	.serialize	dq 0 ;nativeint_serialize,
+	.deserialize	dq 0 ;nativeint_deserialize,
+	.compare_ext	dq 0 ;custom_compare_ext_default
+
 caml_int64_ops:
 	.identifier	dq "_j"	; в оригинале указатель на строку
 	.finalize	dq 0 ;custom_finalize_default
@@ -677,13 +694,13 @@ caml_int64_ops:
 	.deserialize	dq 0 ;int64_deserialize,
 	.compare_ext	dq 0 ;custom_compare_ext_default
 
-caml_nativeint_ops:
-	.identifier	dq "_n"	; в оригинале указатель на строку
+caml_int32_ops:
+	.identifier	dq "_i"	; в оригинале указатель на строку
 	.finalize	dq 0 ;custom_finalize_default
-	.compare	dq 0 ;nativeint_cmp,
-	.hash		dq 0 ;nativeint_hash,
-	.serialize	dq 0 ;nativeint_serialize,
-	.deserialize	dq 0 ;nativeint_deserialize,
+	.compare	dq 0 ;int32_cmp,
+	.hash		dq 0 ;int32_hash,
+	.serialize	dq 0 ;int32_serialize,
+	.deserialize	dq 0 ;int32_deserialize,
 	.compare_ext	dq 0 ;custom_compare_ext_default
 
 ; caml_builtin_cprim
