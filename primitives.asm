@@ -54,11 +54,6 @@ end C_primitive
 
 
 
-C_primitive caml_add_float
-
-end C_primitive
-
-
 ; Резервирует место в куче под массив вещественных чисел.
 ; RDI - размер (OCaml value) размещаемого в памяти блока в словах.
 caml_alloc_dummy_float:
@@ -572,6 +567,48 @@ end C_primitive
 
 C_primitive caml_create_string
 
+end C_primitive
+
+
+; Возвращает сумму 2-х вещественных чисел.
+; RDI - адрес 1-го слагаемого;
+; RSI - адрес 2-го слагаемого.
+C_primitive caml_add_float
+	mov	Val_header[alloc_small_ptr_backup], 1 wosize + Double_tag
+	movsd	xmm0, [rdi]
+	addsd	xmm0, [rsi]
+	movsd	[alloc_small_ptr_backup + sizeof value], xmm0
+	lea	rax, [alloc_small_ptr_backup + 1 * sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
+end C_primitive
+
+
+; Возвращает разность 2-х вещественных чисел.
+; RDI - адрес уменьшаемого;
+; RSI - адрес вычитаемого.
+C_primitive caml_sub_float
+	mov	Val_header[alloc_small_ptr_backup], 1 wosize + Double_tag
+	movsd	xmm0, [rdi]
+	subsd	xmm0, [rsi]
+	movsd	[alloc_small_ptr_backup + sizeof value], xmm0
+	lea	rax, [alloc_small_ptr_backup + 1 * sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
+end C_primitive
+
+
+; Возвращает произведение 2-х вещественных чисел.
+; RDI - адрес 1-го множителя;
+; RSI - адрес 2-го множителя.
+C_primitive caml_mul_float
+	mov	Val_header[alloc_small_ptr_backup], 1 wosize + Double_tag
+	movsd	xmm0, [rdi]
+	mulsd	xmm0, [rsi]
+	movsd	[alloc_small_ptr_backup + sizeof value], xmm0
+	lea	rax, [alloc_small_ptr_backup + 1 * sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
 end C_primitive
 
 
@@ -1118,9 +1155,17 @@ C_primitive caml_final_release
 end C_primitive
 
 
-
+; Возвращает вещественное число, равное целому на входе
+; RDI - целое OCaml value.
 C_primitive caml_float_of_int
-
+	mov	eax, 1 wosize or Double_tag
+	mov	[alloc_small_ptr_backup], rax
+	Int_val	rdi
+	cvtsi2sd xmm0, rdi
+	movsd	[alloc_small_ptr_backup + sizeof value], xmm0
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
 end C_primitive
 
 
@@ -2602,11 +2647,6 @@ end C_primitive
 
 
 
-C_primitive caml_mul_float
-
-end C_primitive
-
-
 ; "Родные" для архитектуры целые числа. Располагаются в куче.
 
 ; Формирует заголовок блока nativeint
@@ -3283,12 +3323,6 @@ end C_primitive
 
 
 C_primitive caml_string_set64
-
-end C_primitive
-
-
-
-C_primitive caml_sub_float
 
 end C_primitive
 
