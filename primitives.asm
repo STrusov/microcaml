@@ -797,11 +797,17 @@ val2	equ rsi
 	cmp	al, Double_array_tag	; 254
 	jz	.double_array_tag
 ;	cmp	dl, Custom_tag		; 255
-	ja	.arbitrary_ptr
+	ja	.custom_tag
 ud2
+.custom_tag:
+;	Версия только для nativeint и без чтения таблицы методов.
+	lea	rax, [caml_nativeint_ops]
+	cmp	rax, [rdi]
+	jnz	.arbitrary_ptr
+	mov	rdi, [rdi + nativeint_val]
+	mov	rsi, [rsi + nativeint_val]
 .arbitrary_ptr:
-	mov	rax, rdi
-	cmp	rax, rsi
+	cmp	rdi, rsi
 	jmp	.result
 ;	Теги равны - сравниваем размеры
 .default_tag:
@@ -2534,8 +2540,36 @@ C_primitive caml_mul_float
 end C_primitive
 
 
+; "Родные" для архитектуры целые числа. Располагаются в куче.
 
+; Формирует заголовок блока nativeint
+macro	nativeint_header
+	mov	Val_header[alloc_small_ptr_backup], (1 + 1) wosize or Custom_tag
+	lea	rax, [caml_nativeint_ops]
+	mov	[alloc_small_ptr_backup + 1 * sizeof value], rax
+end macro
+
+; Значение хранится в 1-м поле блока (после 0-го - с адресом методов).
+nativeint_val equ (1 * sizeof value)
+
+; Сохраняет результат в блоке, устанавливает адреса блока и аллокатора.
+macro	nativeint_ret result
+	mov	[alloc_small_ptr_backup + 2 * sizeof value], result
+	lea	rax, [nativeint_val + alloc_small_ptr_backup]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 3 * sizeof value]
+	ret
+end macro
+
+
+; Возвращает сумму двух целых.
+; RDI - адрес 1-го слагаемого;
+; RSI - адрес 2-го слагаемого.
 C_primitive caml_nativeint_add
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	add	rax, [nativeint_val + rsi]
+	nativeint_ret	rax
+end C_primitive
 
 end C_primitive
 
@@ -2558,27 +2592,77 @@ C_primitive caml_nativeint_compare
 end C_primitive
 
 
-
+; Возвращает частное от деления двух целых.
+; RDI - адрес делимого;
+; RSI - адрес делителя.
 C_primitive caml_nativeint_div
-
+	nativeint_header
+;!!!	Проверку делителя на 0 пока не выполняем.
+	mov	rcx, [nativeint_val + rsi]
+; 	При делении 0x8000000000000000 на -1 генерируется SIGFPE, поскольку
+;	частное положительно и выходит за допустимый диапазон.
+;	Вернём в таком случае делимое (как в эталонной реализации).
+	mov	rax, 1 shl (sizeof value * 8 - 1)
+	cmp	rax, [nativeint_val + rdi]
+	jz	.max_neg
+	mov	rax, [nativeint_val + rdi]
+.div:	cqo
+	idiv	rcx
+.retm:	nativeint_ret	rax
+.max_neg:
+	cmp	rcx, -1
+	jnz	.div
+	mov	rax, rdi
+	ret
 end C_primitive
 
 
 
+; Преобразует число в OCaml-строку (с заголовком) согласно формата.
+; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
+; RSI - адрес блока с целым.
 C_primitive caml_nativeint_format
-
+;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
+	mov	qword[alloc_small_ptr_backup], String_tag
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
+	cmp	dword[rdi], '%nd'
+	jnz	.fmt
+	mov	rsi, [nativeint_val + rsi]
+	call	format_nativeint_dec
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
+	jmp	caml_alloc_string
+.fmt:
+int3
 end C_primitive
 
 
-
+; Возвращает остаток от деления (по модулю) двух целых.
+; RDI - адрес делимого;
+; RSI - адрес делителя.
 C_primitive caml_nativeint_mod
-
+	nativeint_header
+;!!!	Проверку делителя на 0 пока не выполняем.
+	mov	rcx, [nativeint_val + rsi]
+; 	При делении 0x8000000000000000 на -1 генерируется SIGFPE (см. div).
+;	В случае деления на -1 остаток всегда 0, вернём его непосредственно.
+	zero	edx
+	cmp	rcx, -1
+	jz	.ret0
+	mov	rax, [nativeint_val + rdi]
+	cqo
+	idiv	rcx
+.ret0:	nativeint_ret	rdx
 end C_primitive
 
 
-
+; Возвращает произведение двух целых.
+; RDI - адрес 1-го множителя;
+; RSI - адрес 2-го множителя.
 C_primitive caml_nativeint_mul
-
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	imul	qword[nativeint_val + rsi]
+	nativeint_ret	rax
 end C_primitive
 
 
@@ -2594,9 +2678,12 @@ C_primitive caml_nativeint_of_float
 end C_primitive
 
 
-
+; Возвращает адрес целого, полученного из OCaml value.
+; RDI - OCaml value
 C_primitive caml_nativeint_of_int
-
+	nativeint_header
+	Int_val	rdi
+	nativeint_ret	rdi
 end C_primitive
 
 
@@ -2618,9 +2705,17 @@ C_primitive caml_nativeint_or
 end C_primitive
 
 
-
+; Сдвиг влево целого.
+; Возвращает адрес результата.
+; RDI - адрес сдвигаемого аргумента;
+; RSI - количество бит, на которое следует сдвинуть аргумент (OCaml value)
 C_primitive caml_nativeint_shift_left
-
+	nativeint_header
+	Int_val	esi
+	mov	ecx, esi
+	mov	rax, [nativeint_val + rdi]
+	shl	rax, cl
+	nativeint_ret	rax
 end C_primitive
 
 
@@ -2636,9 +2731,14 @@ C_primitive caml_nativeint_shift_right_unsigned
 end C_primitive
 
 
-
+; Возвращает разность двух целых.
+; RDI - адрес 1-го уменьшаемое;
+; RSI - адрес 2-го вычитаемое.
 C_primitive caml_nativeint_sub
-
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	sub	rax, [nativeint_val + rsi]
+	nativeint_ret	rax
 end C_primitive
 
 
