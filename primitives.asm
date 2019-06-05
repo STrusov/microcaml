@@ -1740,19 +1740,15 @@ C_primitive caml_int32_xor
 end C_primitive
 
 
+; 64-х разрядные числа. Располагаются в куче.
+; Соответствуют "родным". В эталонной реализации различаются таблицей методов.
+
 ; Значение хранится в 1-м поле блока (после 0-го - с адресом методов).
 int64_val equ (1 * sizeof value)
 
-C_primitive caml_int64_add
+caml_int64_add	:= caml_nativeint_add
 
-end C_primitive
-
-
-
-C_primitive caml_int64_and
-
-end C_primitive
-
+caml_int64_and	:= caml_nativeint_and
 
 
 C_primitive caml_int64_bits_of_float
@@ -1772,10 +1768,7 @@ C_primitive caml_int64_compare
 end C_primitive
 
 
-
-C_primitive caml_int64_div
-
-end C_primitive
+caml_int64_div	:= caml_nativeint_div
 
 
 ; RDI - адрес источника для копирования в кучу числа с плавающей точкой.
@@ -1796,23 +1789,11 @@ C_primitive caml_int64_format
 end C_primitive
 
 
+caml_int64_mod	:= caml_nativeint_mod
 
-C_primitive caml_int64_mod
+caml_int64_mul	:= caml_nativeint_mul
 
-end C_primitive
-
-
-
-C_primitive caml_int64_mul
-
-end C_primitive
-
-
-
-C_primitive caml_int64_neg
-
-end C_primitive
-
+caml_int64_neg	:= caml_nativeint_neg
 
 
 C_primitive caml_int64_of_float
@@ -1820,21 +1801,16 @@ C_primitive caml_int64_of_float
 end C_primitive
 
 
+caml_int64_of_int	:= caml_nativeint_of_int
 
-C_primitive caml_int64_of_int
-
-end C_primitive
-
+caml_int64_of_int32	:= caml_nativeint_of_int32
 
 
-C_primitive caml_int64_of_int32
-
-end C_primitive
-
-
-
+; Создаём копию, поскольку формат идентичен. (безопасно ли просто вернуть RDI?)
 C_primitive caml_int64_of_nativeint
-
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	nativeint_ret	rax
 end C_primitive
 
 
@@ -1845,34 +1821,15 @@ end C_primitive
 
 
 
-C_primitive caml_int64_or
+caml_int64_or	:= caml_nativeint_or
 
-end C_primitive
+caml_int64_shift_left	:= caml_nativeint_shift_left
 
+caml_int64_shift_right	:= caml_nativeint_shift_right
 
+caml_int64_shift_right_unsigned := caml_nativeint_shift_right_unsigned
 
-C_primitive caml_int64_shift_left
-
-end C_primitive
-
-
-
-C_primitive caml_int64_shift_right
-
-end C_primitive
-
-
-
-C_primitive caml_int64_shift_right_unsigned
-
-end C_primitive
-
-
-
-C_primitive caml_int64_sub
-
-end C_primitive
-
+caml_int64_sub	:= caml_nativeint_sub
 
 
 C_primitive caml_int64_to_float
@@ -1880,29 +1837,13 @@ C_primitive caml_int64_to_float
 end C_primitive
 
 
+caml_int64_to_int	:= caml_nativeint_to_int
 
-C_primitive caml_int64_to_int
+caml_int64_to_int32	:= caml_nativeint_to_int32
 
-end C_primitive
+caml_int64_to_nativeint	:= caml_int64_of_nativeint
 
-
-
-C_primitive caml_int64_to_int32
-
-end C_primitive
-
-
-
-C_primitive caml_int64_to_nativeint
-
-end C_primitive
-
-
-
-C_primitive caml_int64_xor
-
-end C_primitive
-
+caml_int64_xor	:= caml_nativeint_xor
 
 
 C_primitive caml_int_as_pointer
