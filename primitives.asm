@@ -1927,9 +1927,12 @@ C_primitive caml_int_compare
 end C_primitive
 
 
-
+; Возвращает целое OCaml value, преобразованное из вещественного числа.
+; RDI - адрес вещественного числа.
 C_primitive caml_int_of_float
-
+	cvttsd2si rax, [rdi]
+	Val_int	rax
+	ret
 end C_primitive
 
 
