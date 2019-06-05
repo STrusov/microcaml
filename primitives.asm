@@ -2641,9 +2641,14 @@ end C_primitive
 end C_primitive
 
 
-
+; Возвращает результат поразрядной конъюнкции (И) двух целых.
+; RDI - адрес 1-го множителя;
+; RSI - адрес 2-го множителя.
 C_primitive caml_nativeint_and
-
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	and	rax, [nativeint_val + rsi]
+	nativeint_ret	rax
 end C_primitive
 
 
@@ -2733,9 +2738,13 @@ C_primitive caml_nativeint_mul
 end C_primitive
 
 
-
+; Возвращает результат вычитания из 0 (смена знака) целого.
+; RDI - адрес целого;
 C_primitive caml_nativeint_neg
-
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	neg	rax
+	nativeint_ret	rax
 end C_primitive
 
 
@@ -2754,9 +2763,12 @@ C_primitive caml_nativeint_of_int
 end C_primitive
 
 
-
+; Возвращает целое, сконвертированное из 32-х разрядного.
+; RDI - адрес 32-х разрядного.
 C_primitive caml_nativeint_of_int32
-
+	nativeint_header
+	movsxd	rax, [int32_val + rdi]
+	nativeint_ret	rax
 end C_primitive
 
 
@@ -2766,9 +2778,14 @@ C_primitive caml_nativeint_of_string
 end C_primitive
 
 
-
+; Возвращает результат поразрядной дизъюнкции (включающего ИЛИ) двух целых.
+; RDI - адрес 1-го слагаемого;
+; RSI - адрес 2-го слагаемого.
 C_primitive caml_nativeint_or
-
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	or	rax, [nativeint_val + rsi]
+	nativeint_ret	rax
 end C_primitive
 
 
@@ -2786,15 +2803,31 @@ C_primitive caml_nativeint_shift_left
 end C_primitive
 
 
-
+; Сдвиг вправо арифметический (с учётом знака).
+; Возвращает адрес результата.
+; RDI - адрес сдвигаемого аргумента;
+; RSI - количество бит, на которое следует сдвинуть аргумент (OCaml value)
 C_primitive caml_nativeint_shift_right
-
+	nativeint_header
+	Int_val	esi
+	mov	ecx, esi
+	mov	rax, [nativeint_val + rdi]
+	sar	rax, cl
+	nativeint_ret	rax
 end C_primitive
 
 
-
+; Сдвиг вправо без учёта знака.
+; Возвращает адрес результата.
+; RDI - адрес сдвигаемого аргумента;
+; RSI - количество бит, на которое следует сдвинуть аргумент (OCaml value)
 C_primitive caml_nativeint_shift_right_unsigned
-
+	nativeint_header
+	Int_val	esi
+	mov	ecx, esi
+	mov	rax, [nativeint_val + rdi]
+	shr	rax, cl
+	nativeint_ret	rax
 end C_primitive
 
 
@@ -2815,21 +2848,31 @@ C_primitive caml_nativeint_to_float
 end C_primitive
 
 
-
+; Возвращает OCaml value, полученное из 64-х разрядного целого.
 C_primitive caml_nativeint_to_int
-
+	mov	rax, [nativeint_val + rdi]
+	Val_int	rax
+	ret
 end C_primitive
 
 
-
+; Возвращает 32-х разрядное целое, полученное из 64-х разрядного.
 C_primitive caml_nativeint_to_int32
-
+	int32_header
+	mov	eax, [nativeint_val + rdi]
+	cdqe
+	int32_ret rax
 end C_primitive
 
 
-
+; Возвращает сумму по модулю 2 (исключающее ИЛИ) двух целых.
+; RDI - адрес 1-го слагаемого;
+; RSI - адрес 2-го слагаемого.
 C_primitive caml_nativeint_xor
-
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	xor	rax, [nativeint_val + rsi]
+	nativeint_ret	rax
 end C_primitive
 
 
