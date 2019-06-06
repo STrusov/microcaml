@@ -52,16 +52,19 @@
 
 * basic/arrays.ml
 * basic/bigints.ml
+* basic/boxedints.ml
 * basic/constprop.ml
 * basic/divint.ml
 * basic/equality.ml
 * basic/float.ml
 * basic/float_physical_equality.ml
-* basic/includestruct.ml
+* basic/includestruct.ml ⃰
 * basic/localexn.ml
 * basic/maps.ml
 * basic/patmatch.ml
 * basic/recvalues.ml
 * basic/sets.ml
-* basic/stringmatch.ml
+* basic/stringmatch.ml ⃰
 * basic/tailcalls.ml
+
+⃰ с отключенным сборщиком мусора.
