@@ -1713,9 +1713,12 @@ C_primitive caml_int32_neg
 end C_primitive
 
 
-
+; Возвращает адрес целого, полученного округлением вещественного числа.
+; RDI - адрес вещественного числа.
 C_primitive caml_int32_of_float
-
+	int32_header
+	cvttsd2si rax, [rdi]
+	int32_ret	rax
 end C_primitive
 
 
@@ -1805,9 +1808,17 @@ C_primitive caml_int32_sub
 end C_primitive
 
 
-
+; Возвращает вещественое число, полученное из int32.
+; RDI - адрес целого.
 C_primitive caml_int32_to_float
-
+	mov	eax, 1 wosize or Double_tag
+	mov	[alloc_small_ptr_backup], rax
+	mov	eax, [int32_val + rdi]
+	cvtsi2sd xmm0, eax
+	movsd	[alloc_small_ptr_backup + sizeof value], xmm0
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
 end C_primitive
 
 
