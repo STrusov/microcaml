@@ -1326,6 +1326,37 @@ format_nativeint_dec:
 end proc
 
 
+; Преобразует число в шестнадцатиричный текст, располагая строку в текущие адреса кучи.
+; Возвращает в RDI длину строки-результата.
+; RSI - беззнаковое целое.
+; DL - символ соответствующий 10, т.е. 'A' или 'a'.
+proc	format_nativeint_hex
+	zero	rdi
+	sub	dl, '9' + 1
+	mov	ecx, sizeof value * 8 / 4
+.skip_leading_zeroes:
+	mov	rax, rsi
+	shr	rax, (sizeof value - 1) * 8 + 4
+	jnz	.hd
+;	dec	ecx
+	shl	rsi, 4
+	loop	.skip_leading_zeroes
+	inc	ecx
+.hex_digit:
+	mov	rax, rsi
+	shr	rax, (sizeof value - 1) * 8 + 4
+.hd:	add	al, '0'
+	cmp	al, '9'
+	jbe	.dig
+	add	al, dl
+.dig:	mov	[alloc_small_ptr_backup + rdi], al
+	inc	rdi
+	shl	rsi, 4
+	loop	.hex_digit
+	ret
+end proc
+
+
 ; RDI - адрес объекта.
 C_primitive caml_set_oo_id
 	mov	rax, [oo_last_id]
