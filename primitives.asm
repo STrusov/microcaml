@@ -1620,11 +1620,17 @@ C_primitive caml_int32_bswap
 end C_primitive
 
 
-
+; Сравнивает 2 целых числа.
 C_primitive caml_int32_compare
-
+	mov	eax, [int32_val + rdi]
+	cmp	eax, [int32_val + rsi]
+	mov	eax, Val_int 0
+	mov	ecx, Val_int 1
+	mov	rdx, Val_int -1
+	cmovnz	eax, ecx
+	cmovs	rax, rdx
+	ret
 end C_primitive
-
 
 
 ; Возвращает частное от деления двух целых.
@@ -1847,11 +1853,7 @@ C_primitive caml_int64_bswap
 end C_primitive
 
 
-
-C_primitive caml_int64_compare
-
-end C_primitive
-
+caml_int64_compare	:= caml_nativeint_compare
 
 caml_int64_div	:= caml_nativeint_div
 
@@ -2740,9 +2742,16 @@ C_primitive caml_nativeint_bswap
 end C_primitive
 
 
-
+; Сравнивает 2 целых числа.
 C_primitive caml_nativeint_compare
-
+	mov	rax, [int32_val + rdi]
+	cmp	rax, [int32_val + rsi]
+	mov	eax, Val_int 0
+	mov	ecx, Val_int 1
+	mov	rdx, Val_int -1
+	cmovnz	eax, ecx
+	cmovs	rax, rdx
+	ret
 end C_primitive
 
 
