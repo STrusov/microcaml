@@ -1722,9 +1722,14 @@ C_primitive caml_int32_of_int
 end C_primitive
 
 
-
+; Возвращает целое OCaml value, сконвертированное из текстового представления.
+; RDI - адрес строки.
 C_primitive caml_int32_of_string
-
+	int32_header
+	mov	cl, sizeof value * 4
+	call	parse_intnat
+	cdqe
+	int32_ret rax
 end C_primitive
 
 
@@ -1890,12 +1895,7 @@ C_primitive caml_int64_of_nativeint
 end C_primitive
 
 
-
-C_primitive caml_int64_of_string
-
-end C_primitive
-
-
+caml_int64_of_string	:= caml_nativeint_of_string
 
 caml_int64_or	:= caml_nativeint_or
 
@@ -1994,7 +1994,10 @@ over	equ r9
 .u10:	mov	esi, 10
 ._1:;	Маска содержит 1 в разрядах, запрещённых для результата.
 	or	over, -1
+;	Обеспечим сдвиг на 64 разряда
+	dec	cl
 	shl	over, cl
+	add	over, over
 	mov	al, [rdi]
 	inc	rdi
 	sub	eax, '0'
@@ -2002,7 +2005,7 @@ over	equ r9
 	cmp	al, 9
 	jbe	._1d
 	and	al, not (('a' - '0') xor ('A' - '0'))
-	sub	al, 'A' - '0'
+	sub	al, 'A' - '0' - 10
 	jc	.fail
 	cmp	al, 0Fh
 	ja	.fail
@@ -2018,7 +2021,7 @@ over	equ r9
 	cmp	al, 9
 	jbe	.dgt
 	and	al, not (('a' - '0') xor ('A' - '0'))
-	sub	al, 'A' - '0'
+	sub	al, 'A' - '0' - 10
 	jc	.done
 	cmp	al, 0Fh
 	ja	.done
@@ -2035,21 +2038,29 @@ over	equ r9
 	mov	rdx, rax
 	jmp	.next
 .done:	mov	rax, rdx
-;	Даже если число знаковое, бит знака на данном этапе доложен быть 0.
+	zero	rdx
+;	Даже если число знаковое, бит знака на данном этапе доложен быть 0,
+;	кроме случая, когда число равно минимальному отрицательному.
 	test	rax, over
-	jnz	.fail
+	jnz	.check_min
+; 	Меняем знак, если установлен соответствующий признак.
+	sub	rdx, rax
+	test	sign, sign
+.min:	cmovnz	rax, rdx
 	pop	rsi
 	caml_string_length rsi, rcx, rdx
 	dec	rdi
 	sub	rdi, rcx
 	cmp	rsi, rdi
 	jnz	.fail2
-; 	Меняем знак, если установлен соответствующий признак.
-	zero	rdx
-	sub	rdx, rax
-	test	sign, sign
-	cmovnz	rax, rdx
 	ret
+.check_min:
+;	Минимально возможное отрицательное число равно маске переполнения.
+	test	sign, sign
+	jz	.fail
+	sub	rdx, rax
+	cmp	rdx, over
+	jz	.min
 .fail:	pop	rdi
 .fail2:	;caml_failwith ***
 	caml_invalid_argument 'parse_intnat'
@@ -2886,9 +2897,13 @@ C_primitive caml_nativeint_of_int32
 end C_primitive
 
 
-
+; Возвращает целое OCaml value, сконвертированное из текстового представления.
+; RDI - адрес строки.
 C_primitive caml_nativeint_of_string
-
+	nativeint_header
+	mov	cl, sizeof value * 8
+	call	parse_intnat
+	nativeint_ret rax
 end C_primitive
 
 
