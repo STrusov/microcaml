@@ -1658,9 +1658,13 @@ C_primitive caml_int32_float_of_bits
 end C_primitive
 
 
-
+; Преобразует 32-х разрядное число в OCaml-строку (с заголовком) согласно формата.
+; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
+; RSI - адрес блока с целым.
 C_primitive caml_int32_format
-
+;	Для вывода шестнадцатеричных цифр следует удалить незначащие разряды.
+	or	edx, -1
+	jmp	caml_nativeint_format.mask
 end C_primitive
 
 
@@ -1859,11 +1863,7 @@ C_primitive caml_int64_float_of_bits
 end C_primitive
 
 
-
-C_primitive caml_int64_format
-
-end C_primitive
-
+caml_int64_format	:= caml_nativeint_format
 
 caml_int64_mod	:= caml_nativeint_mod
 
@@ -2760,22 +2760,65 @@ C_primitive caml_nativeint_div
 end C_primitive
 
 
-
 ; Преобразует число в OCaml-строку (с заголовком) согласно формата.
 ; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
 ; RSI - адрес блока с целым.
+; RDX (для точки входа .mask) содержит маску с разрядами, подлежащими выводу
+; в случае форматов %X и %x (служит для корректного вывода int32).
 C_primitive caml_nativeint_format
+	or	rdx, -1
 ;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
-	mov	qword[alloc_small_ptr_backup], String_tag
+.mask:	mov	qword[alloc_small_ptr_backup], String_tag
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
-	cmp	dword[rdi], '%nd'
-	jnz	.fmt
+	push	alloc_small_ptr_backup
 	mov	rsi, [nativeint_val + rsi]
-	call	format_nativeint_dec
+	caml_string_length rdi, rcx, rax
+;	Копируем префикс формата, пока не встретится %
+.cp_fmt:
+	jecxz	.exit0
+	mov	al, [rdi]
+	inc	rdi
+	dec	ecx
+	cmp	al, '%'
+	jz	.fmt
+.cpf:	mov	[alloc_small_ptr_backup], al
+	inc	alloc_small_ptr_backup
+	jmp	.cp_fmt
+.fmt:	lea	r8, [rdi + 2]
+	lea	r9d, [ecx - 1]
+	cmp	byte[rdi], 'd'
+	jz	.dec
+	cmp	byte[rdi], 'X'
+	jz	.HEX
+	inc	r8
+	dec	r9d
+	cmp	word[rdi], 'nd'
+	jz	.dec
+	jmp	.cpf
+.dec:	call	format_nativeint_dec
+	jmp	.cp_fmt_tail
+.HEX:	and	rsi, rdx
+	mov	dl, 'A'
+	jmp	.hex_f
+.hex:	and	rsi, rdx
+	mov	dl, 'a'
+.hex_f:	call	format_nativeint_hex
+;	Копируем остаток строки формата, если она есть.
+.cp_fmt_tail:
+	test	r9d, r9d
+	jz	.exit
+	mov	al, [r8]
+	mov	[alloc_small_ptr_backup], al
+	inc	r8
+	inc	alloc_small_ptr_backup
+	jmp	.cp_fmt_tail
+.exit:	add	rdi, alloc_small_ptr_backup
+	pop	alloc_small_ptr_backup
+	sub	rdi, alloc_small_ptr_backup
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
 	jmp	caml_alloc_string
-.fmt:
-int3
+.exit0:	zero	edi
+	jmp	.exit
 end C_primitive
 
 
