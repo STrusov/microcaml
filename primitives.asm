@@ -2426,10 +2426,13 @@ C_primitive caml_ml_out_channels_list
 	cmp	[.channel.max], 0
 	jnz	.next
 	mov	rax, .channel
+;	Запоминаем ссылку на блок списка на случай сборки мусора.
+	push	rdx
 	call	caml_alloc_channel
-	mov	Val_header[alloc_small_ptr_backup], (1+2) wosize or Pair_tag
-	mov	[alloc_small_ptr_backup + 2 * sizeof value], rdx ; хвост
-	lea	rdx, [alloc_small_ptr_backup + 1 * sizeof value]
+	pop	rdx
+	mov	Val_header[alloc_small_ptr_backup], 2 wosize or Pair_tag
+	mov	[alloc_small_ptr_backup + (1 + 1) * sizeof value], rdx ; хвост
+	lea	rdx, [alloc_small_ptr_backup + (1 + 0) * sizeof value]
 	mov	[rdx], rax ; канал
 	lea	alloc_small_ptr_backup, [3 * sizeof value + alloc_small_ptr_backup]
 .next:	mov	.channel, [.channel.next]

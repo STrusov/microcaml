@@ -64,7 +64,6 @@
 * basic/patmatch.ml
 * basic/recvalues.ml
 * basic/sets.ml
-* basic/stringmatch.ml ⃰
+* basic/stringmatch.ml
 * basic/tailcalls.ml
 
-⃰ с отключенным сборщиком мусора.
