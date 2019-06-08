@@ -2429,8 +2429,14 @@ C_primitive caml_ml_out_channels_list
 ;	Запоминаем ссылку на блок списка на случай сборки мусора.
 	push	rdx
 	call	caml_alloc_channel
-	pop	rdx
+;	Запоминаем ссылку на блок канала на случай сборки мусора.
+	push	rax
 	mov	Val_header[alloc_small_ptr_backup], 2 wosize or Pair_tag
+;	Форсируем аллокацию.
+	test	[alloc_small_ptr_backup + (1 + 1) * sizeof value], rax
+;	В случае уплотнения кучи значения скорректированы.
+	pop	rax
+	pop	rdx
 	mov	[alloc_small_ptr_backup + (1 + 1) * sizeof value], rdx ; хвост
 	lea	rdx, [alloc_small_ptr_backup + (1 + 0) * sizeof value]
 	mov	[rdx], rax ; канал
