@@ -28,11 +28,10 @@ end macro
 macro caml_invalid_argument msg
 	lea	rdi, [.m]
 	puts	rdi
-	mov	eax, -EINVAL
+	mov	edx, -EINVAL
 	jmp	sys_exit
 .m	db	msg, 10, 0
 end macro
-
 
 C_primitive_first:
 
