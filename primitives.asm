@@ -150,7 +150,6 @@ end C_primitive
 ; RDI - адрес массива
 ; RSI - индекс элемента (OCaml value)
 C_primitive caml_array_get_addr
-C_primitive_stub
 	Long_val rsi
 	js	caml_array_bound_error
 	mov	rax, Val_header[rdi - sizeof value]
@@ -1234,7 +1233,7 @@ C_primitive caml_format_float
 	cvtsi2sd xmm1, eax
 	mulsd	xmm0, xmm1
 ;	Преобразуем без усечения, иначе 0.1 -> 0.09999.
-;	.1234567 выводится как .123457, что соотвествует sprintf (и OCaml).
+;	.1234567 выводится как .123457, что соответствует sprintf (и OCaml).
 	cvtsd2si esi, xmm0
 ;	format_nativeint_dec не выводит незначащие нули,
 ;	создаём фиктивный значащий старший разряд, что бы вывести остальные.
@@ -1326,7 +1325,7 @@ format_nativeint_dec:
 end proc
 
 
-; Преобразует число в шестнадцатиричный текст, располагая строку в текущие адреса кучи.
+; Преобразует число в шестнадцатеричный текст, располагая строку в текущие адреса кучи.
 ; Возвращает в RDI длину строки-результата.
 ; RSI - беззнаковое целое.
 ; DL - символ соответствующий 10, т.е. 'A' или 'a'.
@@ -1808,7 +1807,7 @@ C_primitive caml_int32_sub
 end C_primitive
 
 
-; Возвращает вещественое число, полученное из int32.
+; Возвращает вещественное число, полученное из int32.
 ; RDI - адрес целого.
 C_primitive caml_int32_to_float
 	mov	eax, 1 wosize or Double_tag
@@ -2376,7 +2375,7 @@ end C_primitive
 ; продолжает выполнение.
 
 ; RAX - адрес канала
-; Возвращает объект вирт. канала.
+; Возвращает объект виртуального канала.
 caml_alloc_channel:
 ;	Для сборщика мусора требуется:
 ;	chan->refcount++;             /* prevent finalization during next alloc */
@@ -2407,7 +2406,6 @@ end proc
 ; RDI - fd Value
 C_primitive caml_ml_open_descriptor_out
 C_primitive_stub
-;	return caml_alloc_channel(caml_open_descriptor_out(Int_val(fd)));
 	Int_val	edi
 	call	caml_open_descriptor_out
 	jmp	caml_alloc_channel
@@ -2473,11 +2471,11 @@ rep	movs	byte[rdi], [rsi]
 rep	movs	byte[rdi], [rsi]
 	lea	rsi, [.channel.buff]
 	mov	rdx, [.channel.end]
-	sub	rdx, rsi	; длина
+	sub	rdx, rsi	; длинна
 	push	rsi rdx rax	; rax - channel
 	mov	edi, [.channel.fd]
 	call	caml_write
-	pop	rdx rcx	rdi	; теперь rdx = channel, rcx = длина, а rdi = буфер
+	pop	rdx rcx	rdi	; теперь rdx = channel, rcx = длинна, а rdi = буфер
 	cmp	rax, rcx
 	je	.all_written
 ;	Перемещаем остаток в начало буфера.
@@ -3075,8 +3073,8 @@ C_primitive caml_obj_block
 end C_primitive
 
 
+; Создаёт копию объекта и возвращает её адрес.
 ; RDI - адрес исходного объекта.
-; Возвращает адрес созданной копии.
 C_primitive caml_obj_dup
 ;	В оригинале проверяется No_scan_tag
 	mov	rcx, Val_header[rdi - sizeof value]
@@ -3537,7 +3535,7 @@ end C_primitive
 ; 1й - массив из аргументов (начинается с имени исполняемого файла).
 ;
 ; Реализация не полная:
-; имя исполняемого файла задано строковой константой в интерпретаторе.
+; Массив аргументов включает лишь первый элемент. См. так же main.1arg:
 C_primitive caml_sys_get_argv
 C_primitive_stub
 ;	Вычисляем длину строки и копируем её на кучу.

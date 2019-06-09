@@ -1,8 +1,9 @@
-;  pc = prog;		r15 (или rsi?)
-;  extra_args = 0;	r12
-;  env = Atom(0);	r13
-;  accu = Val_int(0);	rdx или надо сохранять?
-
+; Соответствие регистров виртуальной машины регистрам процессора:
+;  pc ("счётчик" инструкций)	r15
+;  accu (аккумулятор)		rdx
+;  extra_args			r12
+;  env				r13
+;
 ; Инициализируется адресом байткода для интерпретации.
 vm_pc	equ r15
 
@@ -795,7 +796,6 @@ Instruct	MAKEBLOCK2
 	movs	qword[alloc_small_ptr], [rsi]
 	pop	accu	; адрес блока (за заголовком) скорректирован сборщиком мусора
 	mov	rsp, rsi
-;	lea	accu, [alloc_small_ptr - 2 * sizeof value]	; Адрес блока (за заголовком).
 	Instruct_next
 Instruct_size
 end Instruct
@@ -1537,11 +1537,6 @@ end Instruct
 Instruct	RAISE_NOTRACE
 
 end Instruct
-
-
-;Instruct	FIRST_UNIMPLEMENTED_OP
-
-;end Instruct
 
 
 SWITCH_impl:

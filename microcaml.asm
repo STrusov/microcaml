@@ -65,9 +65,8 @@ sect_names equ 'DBUG','CRCS','SYMB','DATA','PRIM','DLLS','DLPT','CODE','RNTM',0
 ; При использовании шебанга #!/usr/bin/ocamlrun секция кода выровнена
 ; по размеру слова (4 байта)
 
-; !!!
 ; !!! ocamlrun копирует секции и добавляет завершающий 0.
-; !!!
+; Необходимости в этом не обнаружено.
 
 ; Описатель секции. Размер в big-endian формате.
 struct section_descriptor
@@ -93,7 +92,7 @@ EXEC_MAGIC2	:= 'X011'
 ;segment	executable
 section '.text' executable align 32
 
-; 	Интерататор размещаем в начале страницы для выравнивания
+; 	Интерпретатор размещаем в начале страницы для выравнивания
 include 'interp.asm'
 
 ;	Куча и сборщик мусора
@@ -161,7 +160,7 @@ main:
 ;	с учётом: CAMLextern void caml_register_custom_operations()
 ;	caml_init_custom_operations
 
-;	Должна быть возморжна инициализация на этупе компиляции.
+;	Должна быть возможна инициализация на этапе компиляции.
 ;	caml_ext_table_init(&caml_shared_libs_path, 8);
 
 ;	caml_external_raise = NULL;
