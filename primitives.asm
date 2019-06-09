@@ -70,10 +70,12 @@ caml_alloc_dummy_function:
 ; Резервирует место в куче.
 ; RDI - размер (OCaml value) размещаемого в памяти блока в словах.
 C_primitive caml_alloc_dummy
-	Int_val	rdi
+	zero	rsi
+.tag:	Int_val	rdi
 	lea	rax, [Atom 0]
 	jz	.exit
 	to_wosize rdi
+	or	rdi, rsi
 	mov	Val_header[alloc_small_ptr_backup], rdi
 	lea	rax, [alloc_small_ptr_backup + sizeof value]
 	from_wosize rdi
@@ -351,21 +353,15 @@ end C_primitive
 ; RDX - новое значение.
 C_primitive caml_array_unsafe_set
 	cmp	byte[rdi - sizeof value], Double_array_tag
-	jz	caml_array_unsafe_set_float
+	jnz	caml_array_unsafe_set_addr
+; RDX - адрес вещественного числа с новым значением.
+caml_array_unsafe_set_float:
+	mov	rdx, [rdx]
 caml_array_unsafe_set_addr:
 	Int_val	rsi
 	mov	[rdi + rsi * sizeof value], rdx
 	mov	eax, Val_unit
 	ret
-end C_primitive
-
-
-; Модифицирует элемент массива вещественных чисел (без проверки выхода за границы).
-; RDI - адрес массива.
-; RSI - индекс элемента (OCaml value);
-; RDX - новое значение.
-C_primitive caml_array_unsafe_set_float
-
 end C_primitive
 
 
@@ -2177,9 +2173,11 @@ C_primitive caml_make_array
 end C_primitive
 
 
-
+; Создаёт массив вещественных чисел без инициализации элементов.
+; RDI - длина вектора.
 C_primitive caml_make_float_vect
-
+	mov	esi, Double_array_tag
+	jmp	caml_alloc_dummy.tag
 end C_primitive
 
 
