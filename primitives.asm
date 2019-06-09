@@ -12,9 +12,17 @@ name:
 ..C_PRIM_COUNT = ..C_PRIM_COUNT + 1
 end macro
 
+macro caml_invalid_argument msg
+	lea	rdi, [.m]
+	puts	rdi
+	mov	edx, -EINVAL
+	jmp	sys_exit
+.m	db	msg, 10, 0
+end macro
+
 macro end?.C_primitive!
 	if $ = .
-		int3
+		caml_invalid_argument .C_primitive_name
 		..C_PRIM_UNIMPLEMENTED = ..C_PRIM_UNIMPLEMENTED + 1
 	else
 		..C_PRIM_IMPLEMENTED = ..C_PRIM_IMPLEMENTED + 1
@@ -25,13 +33,6 @@ macro C_primitive_stub
 	display .C_primitive_name, ' stub ',10
 end macro
 
-macro caml_invalid_argument msg
-	lea	rdi, [.m]
-	puts	rdi
-	mov	edx, -EINVAL
-	jmp	sys_exit
-.m	db	msg, 10, 0
-end macro
 
 C_primitive_first:
 
@@ -3746,4 +3747,4 @@ end C_primitive
 display_num "Реализовано C-примитивов: ", ..C_PRIM_TOTAL - ..C_PRIM_UNIMPLEMENTED
 display_num " (включая ", ..C_PRIM_TOTAL - ..C_PRIM_COUNT
 display_num_ln " синонимов) из ", ..C_PRIM_TOTAL
-display_num_ln "Занимают байт (включая int3 заглушки): ", $-C_primitive_first
+display_num_ln "Занимают байт (включая заглушки с именами нереализованных): ", $-C_primitive_first
