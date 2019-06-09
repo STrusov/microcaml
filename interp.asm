@@ -939,7 +939,14 @@ end Instruct
 
 
 Instruct	SETVECTITEM
-
+;	caml_modify
+	pop	rcx	; индекс элемента
+	Int_val	rcx
+	pop	rax
+	mov	[accu + rcx * sizeof value], rax
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
