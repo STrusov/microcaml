@@ -1,13 +1,16 @@
 #/bin/bash
 
 testsuite="../ocaml/testsuite/tests"
-tests="basic"
+tests="
+    array-functions
+    basic
+    "
 
 tmpdir=`mktemp -d --tmpdir microcamltest.XXX`
 
 for testdir in ${tests}
 do
-    echo -e "\033[1mКаталог ${testdir}:\033[22m"
+    echo -e "\033[1m Каталог ${testdir}:\033[22m"
     sources=`ls -1 ${testsuite}/${testdir}/*ml`
     for filepath in ${sources}
     do

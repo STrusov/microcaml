@@ -47,23 +47,10 @@
 произвольного файла с сообщением о неподдерживаемом блоке, или невалидном формате
 инструкции виртуальной машины, либо останов в контрольной точке int3/ud2.
 
-На момент публикации описания пройдены следующие тесты, поставляемые с эталонной
+На момент редакции описания пройдены следующие тесты, поставляемые с эталонной
 реализацией (версия 4.04.2, каталог `ocaml/testsuite/tests/`):
 
-* basic/arrays.ml
-* basic/bigints.ml
-* basic/boxedints.ml
-* basic/constprop.ml
-* basic/divint.ml
-* basic/equality.ml
-* basic/float.ml
-* basic/float_physical_equality.ml
-* basic/includestruct.ml
-* basic/localexn.ml
-* basic/maps.ml
-* basic/patmatch.ml
-* basic/recvalues.ml
-* basic/sets.ml
-* basic/stringmatch.ml
-* basic/tailcalls.ml
+* array-functions
+* basic
 
+(пофайловый список см. в autotest.result)

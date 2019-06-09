@@ -1,0 +1,20 @@
+[1m Каталог array-functions:[22m
+test.ml 	+
+[1m Каталог basic:[22m
+arrays.ml 	+
+bigints.ml 	+
+boxedints.ml 	+
+constprop.ml 	+
+divint.ml 	+
+equality.ml 	+
+float.ml 	+
+float_physical_equality.ml 	+
+includestruct.ml 	+
+localexn.ml 	+
+maps.ml 	+
+min_int.ml 	+
+patmatch.ml 	+
+recvalues.ml 	+
+sets.ml 	+
+stringmatch.ml 	+
+tailcalls.ml 	+
