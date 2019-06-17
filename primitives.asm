@@ -1220,7 +1220,7 @@ C_primitive caml_format_float
 ;	Выделяем целую часть, округляя к 0, и форматируем её в строку.
 	cvttsd2si rsi, xmm0
 	call	format_nativeint_dec
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rdi]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
 ;	Выделяем 6 знаков дробной части абсолютного значения числа.
 	cvttsd2si rax, xmm0
 	cvtsi2sd xmm1, rax
@@ -1239,17 +1239,17 @@ C_primitive caml_format_float
 ;	Располагаем десятичную точку (OCaml не использует локализацию?)
 ;	поверх единицы в старшем разряде, полученной прибавлением 1000000 ранее.
 	mov	byte[alloc_small_ptr_backup], '.'
-.exit:	add	rdi, alloc_small_ptr_backup
+.exit:	lea	rdi, [rax + alloc_small_ptr_backup]
 	pop	alloc_small_ptr_backup
 	sub	rdi, alloc_small_ptr_backup
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
 	jmp	caml_alloc_string
 .infinity:
 	mov	dword[alloc_small_ptr_backup], 'inf'
-	mov	edi, 3
+	mov	eax, 3
 	jmp	.exit
 .nan:	mov	dword[alloc_small_ptr_backup], 'nan'
-	mov	edi, 3
+	mov	eax, 3
 	jmp	.exit
 .fmt:
 int3
@@ -1260,23 +1260,17 @@ end C_primitive
 ; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
 ; RSI - целое (в OCaml-представлении).
 C_primitive caml_format_int
-;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
-	mov	qword[alloc_small_ptr_backup], String_tag
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
-;	в pervasives.ml встречается только %d (см. string_of_int)
-	cmp	word[rdi], '%d'
-	jnz	.fmt
-	call	format_int_dec
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
-	jmp	caml_alloc_string
-.fmt:
-int3
+	Int_val rsi
+	or	rdx, -1
+	jmp	caml_nativeint_format.nint
 end C_primitive
 
 
 ; Преобразует число в текстовую форму, располагая строку в текущие адреса кучи.
-; Возвращает в RDI длину строки-результата.
+; Возвращает в RAX длину строки-результата.
 ; RSI - знаковое целое (в OCaml-представлении).
+; RDI, RSI, RDX, RCX - не определены;
+; R8 и R9 не используются.
 proc	format_int_dec
 	Int_val rsi
 ; RSI - знаковое целое.
@@ -1316,13 +1310,13 @@ format_nativeint_dec:
 	mov	[alloc_small_ptr_backup + rdi], dl
 	inc	edi
 	jmp	.rev
-.order:	pop	rdi	; размер строки
+.order:	pop	rax	; размер строки
 	ret
 end proc
 
 
 ; Преобразует число в шестнадцатеричный текст, располагая строку в текущие адреса кучи.
-; Возвращает в RDI длину строки-результата.
+; Возвращает в RAX длину строки-результата.
 ; RSI - беззнаковое целое.
 ; DL - символ соответствующий 10, т.е. 'A' или 'a'.
 proc	format_nativeint_hex
@@ -1333,7 +1327,6 @@ proc	format_nativeint_hex
 	mov	rax, rsi
 	shr	rax, (sizeof value - 1) * 8 + 4
 	jnz	.hd
-;	dec	ecx
 	shl	rsi, 4
 	loop	.skip_leading_zeroes
 	inc	ecx
@@ -1348,6 +1341,7 @@ proc	format_nativeint_hex
 	inc	rdi
 	shl	rsi, 4
 	loop	.hex_digit
+	mov	rax, rdi
 	ret
 end proc
 
@@ -2801,16 +2795,24 @@ end C_primitive
 ; RSI - адрес блока с целым.
 ; RDX (для точки входа .mask) содержит маску с разрядами, подлежащими выводу
 ; в случае форматов %X и %x (служит для корректного вывода int32).
+;
+; Эталонная реализация в случае пустой строки формата генерирует SIGSEGV.
+; Если после формата присутствуют символы, они затирают часть числа; кроме того,
+; выводится суффикс (l). В данной реализации поведение отличается: число
+; выводится всегда целиком и без суффикса, что выглядит естественным.
 C_primitive caml_nativeint_format
 	or	rdx, -1
+.mask:	mov	rsi, [nativeint_val + rsi]
+; RSI - целое.
+.nint:
 ;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
-.mask:	mov	qword[alloc_small_ptr_backup], String_tag
+	mov	qword[alloc_small_ptr_backup], String_tag
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
 	push	alloc_small_ptr_backup
-	mov	rsi, [nativeint_val + rsi]
 	caml_string_length rdi, rcx, rax
 ;	Копируем префикс формата, пока не встретится %
 .cp_fmt:
+;	При отсутствии формата (символа '%') число не выводится.
 	jecxz	.exit0
 	mov	al, [rdi]
 	inc	rdi
@@ -2839,21 +2841,17 @@ C_primitive caml_nativeint_format
 .hex:	and	rsi, rdx
 	mov	dl, 'a'
 .hex_f:	call	format_nativeint_hex
-;	Копируем остаток строки формата, если она есть.
+;	Копируем остаток строки формата, при наличии.
 .cp_fmt_tail:
-	test	r9d, r9d
-	jz	.exit
-	mov	al, [r8]
-	mov	[alloc_small_ptr_backup], al
-	inc	r8
-	inc	alloc_small_ptr_backup
-	jmp	.cp_fmt_tail
-.exit:	add	rdi, alloc_small_ptr_backup
-	pop	alloc_small_ptr_backup
+	lea	rdi, [rax + alloc_small_ptr_backup]
+	mov	ecx, r9d
+	mov	rsi, r8
+rep	movs	byte[rdi], [rsi]
+.exit:	pop	alloc_small_ptr_backup
 	sub	rdi, alloc_small_ptr_backup
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
 	jmp	caml_alloc_string
-.exit0:	zero	edi
+.exit0:	mov	rdi, alloc_small_ptr_backup
 	jmp	.exit
 end C_primitive
 

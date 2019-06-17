@@ -1785,7 +1785,7 @@ start	equ r12
 ;	Форматируем знаковое целое.
 	mov	alloc_small_ptr_backup, alloc_small_ptr
 	call	format_int_dec
-	lea	alloc_small_ptr, [alloc_small_ptr_backup + rdi]
+	lea	alloc_small_ptr, [alloc_small_ptr_backup + rax]
 	jmp	.next
 .block:	cmp	byte[rsi - sizeof value], String_tag
 	jnz	.any
