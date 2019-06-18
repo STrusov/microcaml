@@ -866,7 +866,15 @@ end Instruct
 
 
 Instruct	GETFLOATFIELD
-
+	mov	eax, 1 wosize + Double_tag
+	stos	Val_header[alloc_small_ptr]
+	mov	eax, [opcode.1]
+	next_opcode
+	mov	rax, [accu + rax * sizeof value]
+	stos	qword[alloc_small_ptr]
+	lea	accu, [alloc_small_ptr - sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
