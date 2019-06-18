@@ -52,5 +52,6 @@
 
 * array-functions
 * basic
+* basic-float/tfloat_record.ml
 
 (пофайловый список см. в autotest.result)
