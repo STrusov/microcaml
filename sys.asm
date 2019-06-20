@@ -1,6 +1,9 @@
 ; Процедуры (C примитивы) обеспечивающие системные вызовы.
 
 
+NO_ARG	:= Val_int(0)
+
+
 ; edi = Value
 ; Произвольный код может быть возвращён вызовом sys_exit библиотеки Pervasives.
 C_primitive caml_sys_exit
