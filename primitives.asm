@@ -1,6 +1,7 @@
 ..C_PRIM_COUNT = 0
 ..C_PRIM_IMPLEMENTED = 0
 ..C_PRIM_UNIMPLEMENTED = 0
+..C_PRIM_UNIMPLEMENTED_BYTES = 0
 
 ; Использовать ли для всех типов данных универсальную процедуру
 ; сравнения значений вместо специализированных.
@@ -16,6 +17,7 @@ macro end?.C_primitive!
 	if $ = .
 		caml_invalid_argument .C_primitive_name
 		..C_PRIM_UNIMPLEMENTED = ..C_PRIM_UNIMPLEMENTED + 1
+		..C_PRIM_UNIMPLEMENTED_BYTES = ..C_PRIM_UNIMPLEMENTED_BYTES + $ - .
 	else
 		..C_PRIM_IMPLEMENTED = ..C_PRIM_IMPLEMENTED + 1
 	end if
@@ -311,4 +313,5 @@ end C_primitive
 display_num "Реализовано C-примитивов: ", ..C_PRIM_TOTAL - ..C_PRIM_UNIMPLEMENTED
 display_num " (включая ", ..C_PRIM_TOTAL - ..C_PRIM_COUNT
 display_num_ln " синонимов) из ", ..C_PRIM_TOTAL
-display_num_ln "Занимают байт (включая заглушки с именами нереализованных): ", $-C_primitive_first
+display_num_ln "Занимают байт: ", $-C_primitive_first
+display_num_ln "В том числе заглушки с именами нереализованных: ", ..C_PRIM_UNIMPLEMENTED_BYTES
