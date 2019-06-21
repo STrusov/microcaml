@@ -12,14 +12,6 @@ name:
 ..C_PRIM_COUNT = ..C_PRIM_COUNT + 1
 end macro
 
-macro caml_invalid_argument msg
-	lea	rdi, [.m]
-	puts	rdi
-	mov	edx, -EINVAL
-	jmp	sys_exit
-.m	db	msg, 10, 0
-end macro
-
 macro end?.C_primitive!
 	if $ = .
 		caml_invalid_argument .C_primitive_name
@@ -36,6 +28,8 @@ end macro
 
 C_primitive_first:
 
+include 'fail.asm'
+
 include 'alloc.asm'
 include 'array.asm'
 include 'str.asm'
@@ -51,12 +45,6 @@ include 'gc_ctrl.asm'
 C_primitive caml_add_debug_info
 
 end C_primitive
-
-
-
-proc caml_array_bound_error
-	caml_invalid_argument	'Выход за пределы массива'
-end proc
 
 
 
