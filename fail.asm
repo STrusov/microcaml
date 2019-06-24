@@ -13,8 +13,41 @@ SYS_BLOCKED_IO		:= 9	; "Sys_blocked_io"
 ASSERT_FAILURE_EXN	:= 10	; "Assert_failure"
 UNDEFINED_RECURSIVE_MODULE_EXN	:=11	; "Undefined_recursive_module"
 
-; Прототипы и подлежат доработке.
+; RDI - адрес строки с текстом ошибки.
+caml_failwith:
+	mov	rax, [caml_global_data]
+; В оригинале проверяется caml_global_data, т.к. вызов может произойти
+; из input_value при заполнении глобальных данных. Здесь пока такого нет.
+	mov	rsi, [rax + FAILURE_EXN * sizeof value]
+;
+; В оригинале порядок аргументов обратный.
+; RSI - адрес тега.
+; RDI - адрес строки с текстом ошибки.
+caml_raise_with_string:
+	push	rsi
+	call	caml_copy_string
+	mov	rsi, rax
+	pop	rdi
+;
+; RDI - тег;
+; RSI - аргумент.
+caml_raise_with_arg:
+	mov	Val_header[alloc_small_ptr_backup], 2 wosize or Pair_tag
+	mov	[alloc_small_ptr_backup + (1 + 0) * sizeof value], rdi
+	mov	[alloc_small_ptr_backup + (1 + 1) * sizeof value], rsi
+	lea	rdi, [alloc_small_ptr_backup + 1 * sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (1 + 2) * sizeof value]
 
+; RDI - адрес информации об исключении.
+caml_raise:
+;	Восстанавливаем регистры виртуальной машины (см. C_CALL).
+	mov	accu, rdi
+	mov	alloc_small_ptr, alloc_small_ptr_backup
+;	Указатель стека восстанавливается в обработчике инструкции.
+	jmp	Instruct_RAISE
+
+
+; Прототипы и подлежат доработке.
 
 macro caml_invalid_argument msg
 	lea	rdi, [.m]

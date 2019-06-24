@@ -1049,6 +1049,7 @@ Instruct_size
 end Instruct
 
 
+; Вызывается так же из caml_raise (см. fail.asm)
 Instruct	RAISE
 	mov	rsp, caml_trapsp
 	pop	vm_pc
