@@ -1773,11 +1773,11 @@ start	equ r12
 	jnz	.ord_exn
 	mov	rcx, [caml_global_data]
 	mov	rax, [rdx]
-	cmp	rax, [rcx +  7 * sizeof value]	; MATCH_FAILURE_EXN
+	cmp	rax, [rcx + MATCH_FAILURE_EXN * sizeof value]
 	jz	.fmt_exn
-	cmp	rax, [rcx + 10 * sizeof value]	; ASSERT_FAILURE_EXN
+	cmp	rax, [rcx + ASSERT_FAILURE_EXN * sizeof value]
 	jz	.fmt_exn
-	cmp	rax, [rcx + 11 * sizeof value]	; UNDEFINED_RECURSIVE_MODULE_EXN
+	cmp	rax, [rcx + UNDEFINED_RECURSIVE_MODULE_EXN * sizeof value]
 	jz	.fmt_exn
 .ord_exn:
 	mov	bucket, rdx
