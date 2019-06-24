@@ -1,6 +1,21 @@
 ; Процедуры (C примитивы) для размещения данных в куче.
 
 
+; Формирует в куче OCaml-строку из С-строки
+; RDI - адрес исходной строки.
+; RDX разрушается.
+proc caml_copy_string
+	mov	rdx, rdi
+	zero	edi
+	mov	qword[alloc_small_ptr_backup], rdi
+.copy:	mov	al, [rdx + rdi]
+	test	al, al
+	jz	caml_alloc_string
+	mov	[alloc_small_ptr_backup + rdi + sizeof value], al
+	inc	edi
+	jmp	.copy
+end proc
+
 ; EDI - целое; количество байт для строки.
 ; Возвращает адрес строки (за заголовком).
 proc caml_alloc_string
