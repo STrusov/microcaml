@@ -961,7 +961,12 @@ end Instruct
 
 
 Instruct	GETSTRINGCHAR
-
+	pop	rcx	; индекс в строке
+	Int_val	rcx
+	movzx	accud, byte[accu + rcx]
+	Val_int	accud
+	Instruct_next
+Instruct_size
 end Instruct
 
 
