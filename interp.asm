@@ -1494,7 +1494,9 @@ purge INTcc
 
 
 Instruct	BULTINT
-
+	BccINT	NAE
+	Instruct_next
+Instruct_size
 end Instruct
 
 
