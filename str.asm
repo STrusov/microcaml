@@ -205,7 +205,21 @@ end C_primitive
 caml_blit_string := caml_blit_bytes
 
 
+; Заполняет массив байт константой.
+; RDI	- адрес начала массива.
+; RSI	- смещение от начала массива (OCaml value).
+; RDX	- количество байт для копирования.
+; CX	- константа для заполнения (OCaml value).
 C_primitive caml_fill_bytes
+	Ulong_val	rsi
+	Int_val	ecx
+	Ulong_val	rdx
+	lea	rdi, [rdi + rsi]
+	mov	eax, ecx
+	mov	rcx, rdx
+rep	stos	byte[rdi]
+	mov	eax, Val_unit
+	ret
 end C_primitive
 
 
