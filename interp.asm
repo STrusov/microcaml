@@ -891,6 +891,8 @@ Instruct	SETFIELD1
 	pop	rax
 	mov	[accu + 1 * sizeof value], rax
 	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
