@@ -109,9 +109,12 @@ over	equ r9
 	sub	rdx, rax
 	cmp	rdx, over
 	jz	.min
-.fail:	pop	rdi
-.fail2:	;caml_failwith ***
-	caml_invalid_argument 'parse_intnat'
+; 	При вызове caml_failwith нет необходимости выравнивать стек
+.fail:;	pop	rdi
+.fail2:	lea	rdi, [.msg]
+	jmp	caml_failwith
+;!!! следует передавать из вызывающей процедуры строку с её именем.
+.msg	db	'parse_intnat', 0
 restore	over
 restore	sign
 end proc

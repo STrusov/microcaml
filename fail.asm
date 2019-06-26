@@ -37,7 +37,7 @@ caml_raise_with_arg:
 	mov	[alloc_small_ptr_backup + (1 + 1) * sizeof value], rsi
 	lea	rdi, [alloc_small_ptr_backup + 1 * sizeof value]
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (1 + 2) * sizeof value]
-
+;
 ; RDI - адрес информации об исключении.
 caml_raise:
 ;	Восстанавливаем регистры виртуальной машины (см. C_CALL).
@@ -47,17 +47,17 @@ caml_raise:
 	jmp	Instruct_RAISE
 
 
-; Прототипы и подлежат доработке.
-
-macro caml_invalid_argument msg
-	lea	rdi, [.m]
-	puts	rdi
-	mov	edx, -EINVAL
-	jmp	sys_exit
-.m	db	msg, 10, 0
-end macro
+; RDI - адрес строки с текстом ошибки.
+caml_invalid_argument:
+	mov	rax, [caml_global_data]
+; В оригинале проверяется caml_global_data, т.к. вызов может произойти
+; из input_value при заполнении глобальных данных. Здесь пока такого нет.
+	mov	rsi, [rax + INVALID_EXN * sizeof value]
+	jmp	caml_raise_with_string
 
 
 proc caml_array_bound_error
-	caml_invalid_argument	'Выход за пределы массива'
+	lea	rdi, [.msg]
+	jmp	caml_invalid_argument
+.msg	db 'Выход за пределы массива', 0
 end proc

@@ -15,7 +15,10 @@ end macro
 
 macro end?.C_primitive!
 	if $ = .
-		caml_invalid_argument .C_primitive_name
+		puts	.msg
+		mov	edx, -EINVAL
+		jmp	sys_exit
+	.msg	db	.C_primitive_name, 10, 0
 		..C_PRIM_UNIMPLEMENTED = ..C_PRIM_UNIMPLEMENTED + 1
 		..C_PRIM_UNIMPLEMENTED_BYTES = ..C_PRIM_UNIMPLEMENTED_BYTES + $ - .
 	else

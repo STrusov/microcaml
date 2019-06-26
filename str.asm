@@ -34,7 +34,9 @@ C_primitive caml_create_bytes
 	mov	rcx, Max_wosize * sizeof value
 	cmp	rdi, rcx
 	jbe	caml_alloc_string
-	caml_invalid_argument "Bytes.create"
+	lea	rdi, [.msg]
+	jmp	caml_invalid_argument
+.msg	db	"Bytes.create", 0
 end C_primitive
 
 
