@@ -127,7 +127,129 @@ C_primitive caml_hexstring_of_float
 end C_primitive
 
 
+; Возвращает вещественное число, сконвертированное из текстового представления.
+; RDI - адрес строки.
 C_primitive caml_float_of_string
+C_primitive_stub	; частично поддержан экспоненциальный формат (P)
+; см. parse_intnat
+;base	equ rsi
+sign	equ r8
+	push	rdi
+	zero	sign
+	cmp	byte[rdi], '+'
+	jz	.sign
+	cmp	byte[rdi], '-'
+	jnz	.positive
+	mov	sign, Negative_double
+.sign:	inc	rdi
+.positive:
+;	По умолчанию числа десятичные.
+;	Проверим наличие префикса 0x или 0X (остальные не поддерживаются в оригинале).
+	cmp	byte[rdi], '0'
+	jnz	.s10
+	mov	al, [rdi + 1]
+	and	al, not ('a' xor 'A')
+	add	rdi, 2
+	mov	esi, 16
+	cmp	al, 'X'
+	jz	._1
+;	mov	esi, 8
+;	cmp	al, 'O'
+;	jz	._1
+;	mov	esi, 2
+;	cmp	al, 'B'
+;	jz	._1
+	sub	rdi, 2
+.s10:	mov	esi, 10
+._1:;	Первый значащий символ может быть только цифрой.
+	movzx	eax, byte[rdi]
+	inc	rdi
+	sub	eax, '0'
+	jc	.fail
+	cmp	eax, 9
+	jbe	._1d
+	and	eax, not (('a' - '0') xor ('A' - '0'))
+	sub	eax, 'A' - '0' - 10
+	jc	.fail
+	cmp	eax, 0Fh
+	ja	.fail
+._1d:	cvtsi2sd xmm0, eax
+	cvtsi2sd xmm1, esi
+	cmp	eax, esi
+	ja	.fail
+.next:	movzx	eax, byte[rdi]
+	inc	rdi
+	cmp	eax, '_'
+	jz	.next
+	sub	eax, '0'
+	jc	.done
+	cmp	eax, 9
+	jbe	.dgt
+;	Для 'P' (0x50) и 'p' (0x40) маска 0xdf (см. далее) не подходит.
+	cmp	eax, 'p' - '0'
+	je	.exp_p
+	cmp	eax, 'P' - '0'
+	je	.exp_p
+	and	eax, not (('a' - '0') xor ('A' - '0'))
+	sub	eax, 'A' - '0' - 10
+	jc	.done
+	cmp	eax, 0Fh
+	ja	.done
+.dgt:	cvtsi2sd xmm2, eax
+	cmp	eax, esi
+	ja	.done
+	mulsd	xmm0, xmm1
+	addsd	xmm0, xmm2
+	jmp	.next
+.done:;	Проверяем, обработана ли вся входная строка.
+	pop	rsi
+	caml_string_length rsi, rcx, rdx
+	dec	rdi
+	sub	rdi, rcx
+	cmp	rsi, rdi
+	jnz	.fail2
+;	Формируем вещественное число.
+	mov	Val_header[alloc_small_ptr_backup], 1 wosize + Double_tag
+;	cvtsi2sd xmm0, rax
+; 	Устанавливаем знак в соответствии с наличием '-'.
+	movq	xmm1, sign
+	xorpd	xmm0, xmm1
+	movsd	[alloc_small_ptr_backup + sizeof value], xmm0
+	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
+;	'P' экспонента - степень двойки.
+.exp_p:	zero	eax
+	mov	esi, 10
+	cmp	byte[rdi], 0
+	jz	.fail
+;!!!	Следует учесть отрицательные значения.
+.exp_p_scan:
+	movzx	ecx, byte[rdi]
+	inc	rdi
+	sub	ecx, '0'
+	jc	.exp_p_done
+	cmp	ecx, 9
+	ja	.exp_p_done
+	mul	esi
+	jo	.fail
+	add	eax, ecx
+	jmp	.exp_p_scan
+.exp_p_done:
+	add	eax, 1023	; 0й порядок
+;	В оригинале допустим диапазон INT_MIN .. INT_MAX
+	cmp	eax, 1 shl 11
+	jae	.fail
+	shl	rax, 52
+	movq	xmm1, rax
+	mulsd	xmm0, xmm1
+	jmp	.done
+; 	При вызове caml_failwith нет необходимости выравнивать стек
+.fail:;	pop	rdi
+.fail2:	lea	rdi, [.msg]
+	jmp	caml_failwith
+.msg:	db	'float_of_string', 0
+restore	sign
 end C_primitive
 
 
