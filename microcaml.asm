@@ -1,3 +1,5 @@
+include 'config.inc'
+
 include 'linux-x64.inc'
 
 include 'mlvalues.inc'

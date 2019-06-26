@@ -3,9 +3,6 @@
 ..C_PRIM_UNIMPLEMENTED = 0
 ..C_PRIM_UNIMPLEMENTED_BYTES = 0
 
-; Использовать ли для всех типов данных универсальную процедуру
-; сравнения значений вместо специализированных.
-GENERIC_COMPARE = 1
 
 macro C_primitive name
 name:
