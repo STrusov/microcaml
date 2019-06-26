@@ -4,6 +4,7 @@ testsuite="../ocaml/testsuite/tests"
 tests="
     array-functions
     basic
+    basic-float
     "
 
 tmpdir=`mktemp -d --tmpdir microcamltest.XXX`
