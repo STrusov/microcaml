@@ -18,10 +18,10 @@ do
         filename=${filepath##*/}
         echo -ne "${filename} \t"
         cp ${filepath} ${tmpdir}
-        cp ${filepath%.ml}.reference ${tmpdir}
         bytecode=${tmpdir}/${filename%.ml}
         ocamlc ${tmpdir}/${filename} -o ${bytecode}
         rm ${tmpdir}/*.cm*
+        ${bytecode} > ${bytecode}.reference
         ./microcaml ${bytecode} > ${bytecode}.output
         diff -u ${bytecode}.output ${bytecode}.reference && echo '+' || exit
     done
