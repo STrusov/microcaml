@@ -1757,10 +1757,15 @@ rep	movs	byte[alloc_small_ptr], [rsi]
 ;	caml_format_exception()
 ;	Форматируем информацию об исключении.
 	cmp	byte[rdx - sizeof value], 0	; Тег
-	jz	.fmt
-ud2	;add_string(&buf, String_val(Field(exn, 0)));
-.fmt:;	Получаем адрес строки вида 'Assert_failure'
 	mov	rsi, [rdx]
+	jz	.fmt
+;	Object_tag - 0й элемент строка, добавляем её к текущему сообщению.
+	caml_string_length	rsi, rcx, rax
+rep	movs	byte[alloc_small_ptr], [rsi]
+	mov	ax, 10
+	stos	word[alloc_small_ptr]
+	jmp	.puts
+.fmt:;	Получаем адрес строки вида 'Assert_failure'
 	mov	rsi, [rsi]	; String_val(Field(Field(exn, 0), 0)
 ;	и добавляем её к текущему сообщению.
 	caml_string_length	rsi, rcx, rax
@@ -1824,7 +1829,7 @@ rep	movs	byte[alloc_small_ptr], [rsi]
 	jmp	.elem
 .close:	mov	eax, ')' + 256 * 10
 	stos	dword[alloc_small_ptr]
-	pop	rax
+.puts:	pop	rax
 	puts	rax
 	mov	eax, 2
 	jmp	sys_exit
