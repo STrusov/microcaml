@@ -1765,9 +1765,9 @@ rep	movs	byte[alloc_small_ptr], [rsi]
 ;	Object_tag - 0й элемент строка, добавляем её к текущему сообщению.
 	caml_string_length	rsi, rcx, rax
 rep	movs	byte[alloc_small_ptr], [rsi]
-	mov	ax, 10
-	stos	word[alloc_small_ptr]
-	jmp	.puts
+	mov	al, 10
+	stos	byte[alloc_small_ptr]
+	jmp	.puts_stderr
 .fmt:;	Получаем адрес строки вида 'Assert_failure'
 	mov	rsi, [rsi]	; String_val(Field(Field(exn, 0), 0)
 ;	и добавляем её к текущему сообщению.
@@ -1830,11 +1830,15 @@ rep	movs	byte[alloc_small_ptr], [rsi]
 	mov	ax, ', '
 	stos	word[alloc_small_ptr]
 	jmp	.elem
-.close:	mov	eax, ')' + 256 * 10
-	stos	dword[alloc_small_ptr]
-.puts:	pop	rax
-	puts	rax
-	mov	eax, 2
+.close:	mov	ax, ')' + 256 * 10
+	stos	word[alloc_small_ptr]
+.puts_stderr:
+	mov	rdx, rdi
+	mov	edi, STDERR_FILENO	; 1й
+	pop	rsi			; 2й
+	sub	rdx, rsi		; 3й
+	sys.write
+	mov	edi, 2
 	jmp	sys_exit
 restore	start
 restore	bucket
