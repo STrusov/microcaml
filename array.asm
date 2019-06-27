@@ -20,7 +20,7 @@ C_primitive caml_array_get_addr
 	mov	rax, Val_header[rdi - sizeof value]
 	from_wosize rax
 	cmp	rax, rsi
-	jc	caml_array_bound_error
+	jbe	caml_array_bound_error
 	mov	rax, [rdi + rsi * sizeof value]
 	ret
 end C_primitive
@@ -35,7 +35,7 @@ C_primitive caml_array_get_float
 	mov	rax, Val_header[rdi - sizeof value]
 	from_wosize rax
 	cmp	rax, rsi
-	jc	caml_array_bound_error
+	jbe	caml_array_bound_error
 	mov	Val_header[alloc_small_ptr_backup], 1 wosize or Double_tag
 	mov	rax, [rdi + rsi * sizeof value]
 	mov	Val_header[alloc_small_ptr_backup + sizeof value], rax
@@ -56,10 +56,10 @@ end C_primitive
 C_primitive caml_array_set_addr
 	Int_val	rsi
 	js	caml_array_bound_error
-	mov	rcx, Val_header[rdi - sizeof value]
-	from_wosize rcx
-	cmp	rsi, rcx
-	jae	caml_array_bound_error
+	mov	rax, Val_header[rdi - sizeof value]
+	from_wosize rax
+	cmp	rax, rsi
+	jbe	caml_array_bound_error
 	mov	[rdi + rsi * sizeof value], rdx
 	ret
 end C_primitive
