@@ -235,8 +235,9 @@ end C_primitive
 ; RSI - адрес делителя.
 C_primitive caml_int32_div
 	int32_header
-;!!!	Проверку делителя на 0 пока не выполняем.
 	mov	ecx, [int32_val + rsi]
+	test	ecx, ecx
+	jz	caml_raise_zero_divide
 ; 	При 32-х разрядном делении 0x80000000 на -1 генерируется SIGFPE,
 ;	поскольку частное положительно и выходит за допустимый диапазон.
 ;	Вернём в таком случае делимое (как в эталонной реализации).
@@ -260,10 +261,11 @@ end C_primitive
 ; RSI - адрес делителя.
 C_primitive caml_int32_mod
 	int32_header
-;!!!	Проверку делителя на 0 пока не выполняем.
 ; 	При 32-х разрядном делении 0x80000000 на -1 генерируется SIGFPE (см. div).
 ;	Используем 64-х разрядное.
 	movsxd	rcx, [int32_val + rsi]
+	test	rcx, rcx
+	jz	caml_raise_zero_divide
 	movsxd	rax, [int32_val + rdi]
 	cqo
 	idiv	rcx
@@ -581,8 +583,9 @@ end C_primitive
 ; RSI - адрес делителя.
 C_primitive caml_nativeint_div
 	nativeint_header
-;!!!	Проверку делителя на 0 пока не выполняем.
 	mov	rcx, [nativeint_val + rsi]
+	test	rcx, rcx
+	jz	caml_raise_zero_divide
 ; 	При делении 0x8000000000000000 на -1 генерируется SIGFPE, поскольку
 ;	частное положительно и выходит за допустимый диапазон.
 ;	Вернём в таком случае делимое (как в эталонной реализации).
@@ -606,8 +609,9 @@ end C_primitive
 ; RSI - адрес делителя.
 C_primitive caml_nativeint_mod
 	nativeint_header
-;!!!	Проверку делителя на 0 пока не выполняем.
 	mov	rcx, [nativeint_val + rsi]
+	test	rcx, rcx
+	jz	caml_raise_zero_divide
 ; 	При делении 0x8000000000000000 на -1 генерируется SIGFPE (см. div).
 ;	В случае деления на -1 остаток всегда 0, вернём его непосредственно.
 	zero	edx
