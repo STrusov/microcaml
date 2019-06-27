@@ -1558,12 +1558,16 @@ end Instruct
 
 
 Instruct	RERAISE
-
+; Отличается от RAISE 4-м аргументом caml_stash_backtrace.
+	jmp	Instruct_RAISE
+Instruct_size
 end Instruct
 
 
 Instruct	RAISE_NOTRACE
-
+; В отличии от RAISE не вызывает caml_stash_backtrace.
+	jmp	Instruct_RAISE
+Instruct_size
 end Instruct
 
 
