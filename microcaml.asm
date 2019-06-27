@@ -108,6 +108,7 @@ proc stdout_string
 .count:	cmp	byte [rsi+rdx], 1
 	inc	edx
 	jnc 	.count
+	dec	edx
 	sys.write
 	ret
 end proc
