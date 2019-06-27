@@ -1751,8 +1751,8 @@ proc caml_fatal_uncaught_exception
 	mov	eax, String_tag
 	stos	Val_header[alloc_small_ptr]
 	push	alloc_small_ptr
-	lea	rsi, [msg_fatal_error]
-	mov	ecx, msg_fatal_error.size
+	lea	rsi, [.msg]
+	mov	ecx, .msg.size
 rep	movs	byte[alloc_small_ptr], [rsi]
 ;	caml_format_exception()
 ;	Форматируем информацию об исключении.
@@ -1830,6 +1830,10 @@ rep	movs	byte[alloc_small_ptr], [rsi]
 	jmp	sys_exit
 restore	start
 restore	bucket
-msg_fatal_error	db 'Фатальная ошибка: исключение '
-msg_fatal_error.size := $-msg_fatal_error
+if ORIGINAL_ERROR_MESSAGES
+.msg	db 'Fatal error: exception '
+else
+.msg	db 'Фатальная ошибка: исключение '
+end if
+.msg.size := $-.msg
 end proc

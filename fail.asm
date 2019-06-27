@@ -59,5 +59,9 @@ caml_invalid_argument:
 proc caml_array_bound_error
 	lea	rdi, [.msg]
 	jmp	caml_invalid_argument
+if ORIGINAL_ERROR_MESSAGES
+.msg	db 'index out of bounds', 0
+else
 .msg	db 'Выход за пределы массива', 0
+end if
 end proc
