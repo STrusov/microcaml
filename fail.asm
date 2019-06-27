@@ -65,3 +65,15 @@ else
 .msg	db 'Выход за пределы массива', 0
 end if
 end proc
+
+
+macro caml_raise_constant	exn_code
+	mov	rax, [caml_global_data]
+	mov	rdi, [rax + exn_code * sizeof value]
+	jmp	caml_raise
+end macro
+
+; Деление на 0.
+proc	caml_raise_zero_divide
+	caml_raise_constant	ZERO_DIVIDE_EXN
+end proc

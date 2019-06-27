@@ -1267,9 +1267,10 @@ end Instruct
 
 
 Instruct	DIVINT
-;	Проверку делителя на 0 не выполняем, но надо бы обработать исключение.
 	pop	rcx
 	sar	rcx, 1
+	mov	alloc_small_ptr_backup, alloc_small_ptr
+	jz	caml_raise_zero_divide
 	mov	rax, accu
 	sar	rax, 1
 	cqo
@@ -1281,15 +1282,17 @@ end Instruct
 
 
 Instruct	MODINT
-;	Проверку делителя на 0 не выполняем, но надо бы обработать исключение.
 	pop	rcx
 	sar	rcx, 1
+	mov	alloc_small_ptr_backup, alloc_small_ptr
+	jz	caml_raise_zero_divide
 	mov	rax, accu
 	sar	rax, 1
 	cqo
 	idiv	rcx
 	lea	accu, [rdx * 2 + 1]
 	Instruct_next
+Instruct_size
 end Instruct
 
 
