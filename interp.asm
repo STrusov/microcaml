@@ -1617,7 +1617,7 @@ display_num_ln "MAKEFLOATBLOCK_impl: ", $-MAKEFLOATBLOCK_impl
 
 GRAB_extra:
 	lea	rcx, [extra_args + rax + 1]
-	add	eax, 2
+	lea	rax, [extra_args + rax + 1 + 2]
 	to_wosize rax
 	or	rax, Closure_tag
 	stos	Val_header[alloc_small_ptr]
