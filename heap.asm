@@ -344,8 +344,12 @@ b_index	equ rsi
 	or	Val_header[b_base - sizeof value], rdx
 .check_block:
 ;	Проверяем тег, подлежит ли блок сканированию.
-	cmp	sil, No_scan_tag
-	jae	.block_searched
+;	Блоки с тегами, начиная с No_scan_tag (251), пропускаются.
+;	Infix_tag = 249, а Forward_tag (250) не используется,
+;	достаточно одного сравнения.
+	cmp	sil, Infix_tag
+	ja	.block_searched
+	jz	.infix_tag_from_stack
 	from_wosize b_index
 	jz	.empty_block			;; ?
 ;	Что бы не адресовать ячейки за пределами отображённых страниц памяти,
@@ -389,12 +393,29 @@ hdr	equ r14
 ;	Запланируем рекурсивный поиск ссылок в объекте, если он найден впервые,
 ;	сохранив в стеке ссылку на новый объект, и продолжим обработку текущего.
 	jnz	.already_marked_block
+;	Если ссылка на блок, предварённый заголовком с Infix_tag, значит имеем
+;	дело с частью блока с Closure_tag, который следует обработать отдельно.
+	cmp	byte[b_ref - sizeof value], Infix_tag
+	jz	.infix_tag
 ;	(Если вложенные объекты сканировать сразу, на стеке приходится сохранять
 ;	b_base и b_index для каждого вложенного объекта, что приводит к затратам
 ;	памяти O(n) при обработке односвязных списков; в данном варианте для
 ;	таких списков получаем O(1), поскольку достаточно всего 1й ячейки стека.)
 	push	b_ref
 	or	[b_ref - sizeof value], ref_idx
+	jmp	.search_block
+.infix_tag:
+;	Данный блок содержит 1 указатель на код, находящийся вне кучи и
+;	не требующий отложенной обработки.
+;	Помечаем заголовок, что бы позже скорректировать ссылку на данный блок.
+	or	[b_ref - sizeof value], ref_idx
+;	Необходимо пометить блок, включающий данный, запланировав сканирование
+;	его содержимого на стадии уплотнения. Маркируем, заменив Closure_tag на
+;	Infix_tag. Заголовок обрамляющего блока находится по отрицательному
+;	смещению, по модулю равному wosize.
+	from_wosize hdr
+	not	hdr	; neg - 1
+	mov	byte[b_ref + hdr * sizeof value], Infix_tag
 	jmp	.search_block
 .already_marked_block:
 ;	Блок уже содержит индекс ссылки - его содержимое обработано.
@@ -417,6 +438,16 @@ hdr	equ r14
 restore	hdr
 restore	ref_idx
 restore	b_ref
+.infix_tag_from_stack:
+;	Данный блок содержит 1 указатель на код, находящийся вне кучи и
+;	не требующий отложенной обработки. Его заголовок помечен до перехода.
+;	Необходимо пометить блок, включающий данный, запланировав сканирование
+;	его содержимого на стадии уплотнения. Маркируем, заменив Closure_tag на
+;	Infix_tag. Заголовок обрамляющего блока находится по отрицательному
+;	смещению, по модулю равному wosize.
+	from_wosize b_index
+	not	b_index	; neg - 1
+	mov	byte[b_base + b_index * sizeof value], Infix_tag
 .block_searched:
 ;	Если стек запланированных блоков пуст, рекурсивная обработка
 ;	блока из кучи, адресуемого ссылкой со стека ВМ, завершена.
@@ -456,7 +487,12 @@ restore s_index
 	lods	Val_header[rsi]
 	mov	rdx, .mark_mask
 	test	rdx, rax
+	mov	rcx, rax
 	jnz	.live_block
+;	Блоки с Closure_tag, содержащие подлежащие обработке блоки с Infix_tag,
+;	маркируются заменой тега на Infix_tag (см. .infix_tag:).
+	cmp	al, Infix_tag
+	jz	.closure_infix
 	from_wosize rax
 ;	Если 0 - формируется блок, размер которого будет определён позже.
 ;	Такая ситуация возможна при вызове из heap_sigsegv_handler.
@@ -467,8 +503,67 @@ restore s_index
 ;	and	eax, Max_wosize - лишнее т.к. старшие биты проверены на 0
 	lea	rsi, [rsi + rax * sizeof value]
 	jmp	.compact
-.live_block:
+
+.closure_infix:
+;	Такие блоки изначально создаются CLOSUREREC.
+;	Меняем тег на прежний и копируем заголовок блока.
+	mov	al, Closure_tag
+	stos	Val_header[alloc_small_ptr]
+.closure_tail:
+	from_wosize ecx
+;	Далее идёт 1 указатель на код, копируем его.
+	movs	qword[alloc_small_ptr], [rsi]
+	dec	ecx
+;	Копируем остальную часть, проверяя инфиксные блоки.
+.copy_closure:
+	lods	qword[rsi]
+	cmp	al, Infix_tag
+	jz	.copy_closure_infix
+.copy_closure_element:
+	stos	qword[alloc_small_ptr]
+	dec	ecx
+	jnz	.copy_closure
+	jmp	.compact
+.copy_closure_infix:
+;	При наличии маркера в заголовке, следует скорректировать ссылку на блок.
+	mov	rdx, .mark_mask
+	test	rdx, rax
+	jz	.copy_closure_element
+	push	rcx
+;	см. .live_block:
+;	Упрощено, т.к. нет (?) отрицательных индексов и блок целиком в куче.
 	mov	rcx, rax
+;	Очищаем маркер и копируем заголовок блока.
+	not	rdx
+	and	rax, rdx
+	stos	Val_header[alloc_small_ptr]
+.correct_infix_link:
+;	Определяем по маркеру адрес ссылки на блок.
+	sar	rcx, ..Mark_shift
+	zero	rdx
+	cmp	rcx, s_size
+	cmovnc	rdx, s_size
+	lea	s_base, [rsp + 8]	; компенсируем push rcx
+	cmovnc	s_base, rsi
+	sub	rcx, rdx
+;	Ссылка либо равна хранящейся в источнике, либо вместо неё находится
+;	маркер с индексом следующей ссылки на данный блок.
+	mov	rdx, [s_base + rcx * sizeof value]
+	cmp	rdx, rsi
+	mov	[s_base + rcx * sizeof value], alloc_small_ptr
+;	Обрабатываем список ссылок, копирование блока произойдёт по его завершении.
+	jnz	.next_infix_link
+	pop	rcx
+;	После инфиксного заголовка расположен 1 указатель на код, копируем.
+	movs	qword[alloc_small_ptr], [rsi]
+	sub	ecx, 2
+	jnz	.copy_closure
+	jmp	.compact
+.next_infix_link:
+	mov	rcx, rdx
+	jmp	.correct_infix_link
+
+.live_block:
 ;	Очищаем маркер и копируем заголовок блока.
 	not	rdx
 	and	rax, rdx
@@ -493,6 +588,11 @@ restore s_index
 	mov	[s_base + rcx * sizeof value], alloc_small_ptr
 ;	Обрабатываем список ссылок, копирование блока произойдёт по его завершении.
 	jnz	.next_link
+;.copy_block:
+;	Если был обработан заголовок блока с Infix_tag, следует обработать
+;	содержащиеся в нём инфиксы.
+	cmp	byte[alloc_small_ptr - sizeof value], Infix_tag
+	jz	.closure_infix_block
 .copy_block:
 ;	Если размер 0 - формируется блок, размер которого будет определён позже.
 ;	Такая ситуация возможна при вызове из heap_sigsegv_handler. Обеспечим
@@ -512,6 +612,10 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 .next_link:
 	mov	rcx, rdx
 	jmp	.correct_link
+.closure_infix_block:
+	mov	rcx, Val_header[alloc_small_ptr - sizeof value]
+	mov	byte[alloc_small_ptr - sizeof value], Closure_tag
+	jmp	.closure_tail
 .negative_idx:
 ;	В случае отрицательного индекса объект, где следует скорректировать
 ;	ссылку, на данном этапе смещён в сторону младших адресов по неизвестному
