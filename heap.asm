@@ -15,6 +15,10 @@ alloc_small_ptr		equ rdi	; С-функции портят регистр
 alloc_small_ptr_backup	equ r14	; копия для сохранения при вызовах
 
 ; Для инициализации кучи используется макрос heap_init.
+; Опциональными параметрами передаются адрес и размер стека, используемого
+; в обработчике исключений. Например (область выделена в стеке потока):
+;	heap_init	[rsp + main.stack_size - MINSIGSTKSZ], MINSIGSTKSZ
+;
 ; Возможно инициализировать кучу раздельно макросами
 ; heap_set_sigsegv_handler и heap_set_limits, имея ввиду, что
 ; результат сгенерированного между ними SIGSEGV не определён.
@@ -55,16 +59,38 @@ end macro
 ; Обработчик sigsegv_handler вызывает сборщик мусора и
 ; добавляет новые страницы по необходимости.
 ;
-; Макрос устанавливает обработчик.
-macro	heap_set_sigsegv_handler
+; Макрос устанавливает обработчик, а так же стек для него.
+macro	heap_set_sigsegv_handler	sigstack_base, sigstack_size
+	virtual at rsp
+	.sstk	sigaltstack
+	end virtual
 	virtual at rsp
 	.ksa	kernel_sigaction
 	end virtual
+;	Задаём диапазон адресов стека для обработчика, при наличии параметров.
+	match ssb, sigstack_base
+		lea	rax, ssb
+	end match
 	sub	rsp, sizeof .ksa
+	match sss, sigstack_size
+		mov	[.sstk.ss_sp], rax
+		zero	esi
+		mov	[.sstk.ss_flags], esi
+		mov	[.sstk.ss_size], sss
+		mov	rdi, rsp
+		sys.sigaltstack
+	end match
 	mov	rdi, rsp
 	mov	rax, heap_sigsegv_handler
 	stos	qword[rdi]
-	mov	eax, SA_SIGINFO or SA_RESTORER
+	match dummy, sigstack_size
+		mov	eax, SA_SIGINFO or SA_RESTORER or SA_ONSTACK
+		display 'Обработчик SIGSEGV использует выделенный стек.', 10
+	else match invalid, sigstack_base
+		err 'Для инициализации стека требуется 2 параметра.', 10
+	else
+		mov	eax, SA_SIGINFO or SA_RESTORER
+	end match
 	stos	qword[rdi]
 	mov	rax, __restore_rt
 	stos	qword[rdi]
@@ -95,8 +121,8 @@ end macro
 
 ; Инициализация кучи. Устанавливается регистр-аллокатор и верхняя граница,
 ; а так же обработчик исключений, обеспечивающий рост кучи.
-macro heap_init
-	heap_set_sigsegv_handler
+macro heap_init	sigstack_base, sigstack_size
+	heap_set_sigsegv_handler sigstack_base, sigstack_size
 	heap_set_limits
 	create_atom_table
 end macro
