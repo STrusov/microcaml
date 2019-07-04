@@ -91,6 +91,10 @@ struct sigaltstack
 end struct	; stack_t
 
 
+MINSIGSTKSZ	:= 2048
+SIGSTKSZ	:= 8192
+
+
 struct sigcontext
 	.r8	dq ?
 	.r9	dq ?

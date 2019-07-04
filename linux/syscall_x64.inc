@@ -83,6 +83,7 @@ define_syscall rt_sigprocmask,	14,	4
 
 define_syscall rt_sigreturn,	15,	0
 
+define_syscall	sigaltstack,	131,	2
 
 ; void exit(int status);
 define_syscall 	exit,	60,	1
