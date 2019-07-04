@@ -143,7 +143,7 @@ end macro
 
 _start:
 main:
-.stack_size	:= sizeof .st
+.stack_size	:= sizeof .st + MINSIGSTKSZ
 ;	Допустим 1 аргумент - имя файла байт-кода.
 	mov	rcx, [rsp]	; argc
 	cmp	ecx, 2
@@ -314,7 +314,7 @@ main:
 ;	Указатель на текущее свободное место в куче - alloc_small_ptr.
 ;	Выделение памяти происходит путём его увеличения, новые страницы
 ;	добавляются прозрачно по необходимости.
-	heap_init
+	heap_init	[rsp + .stack_size - MINSIGSTKSZ], MINSIGSTKSZ
 
 ; Заголовок блока данных, расположенный перед ними.
 ;struct marshal_header
@@ -651,7 +651,7 @@ restore	intern_obj_table
 
 ;	Подготавливаем виртуальную машину и переходим к первой инструкции
 	mov	vm_pc, [.sect_code]
-	
+
 	interpreter_init
 	Instruct_next
 ;	ud2
