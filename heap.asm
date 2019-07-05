@@ -426,7 +426,7 @@ hdr	equ r14
 	shl	ref_idx, 64 - ..Mark_shift
 	xor	ref_idx, hdr
 	mov	Val_header[b_ref - sizeof value], ref_idx
-;	Индекс, содержищийся в заголовке, перенесём по адресу текущей ссылки.
+;	Индекс, содержащийся в заголовке, перенесём по адресу текущей ссылки.
 ;	Младшие разряды значения ссылки сохраним на случай .find_link:.
 	mov	ref_idx, .mark_mask
 	and	hdr, ref_idx
