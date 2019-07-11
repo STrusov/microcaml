@@ -46,8 +46,10 @@ maximum allowed depth of entering macroinstructions and including additional
 source files. The "-v" switch can enable showing all the lines from this stack
 when reporting an error (by default the assembler tries to select only the
 lines that are likely the most informative, but this simple heuristic may not
-always be correct). The "-i" switch allows to insert any command at the
-beginning of processed source.
+always be correct). If "-v" switch is used with value 2, it in addition makes
+all the messages displayed by commands from the source text to be shown in real
+time (in every consecutive pass). The "-i" switch allows to insert any command at
+the beginning of processed source.
 
 
 1. Fundamental syntax rules
@@ -349,7 +351,7 @@ previous value, "=:" preserves it so it can later be brought back with the
         a = 3           ; discards a = 2 and replaces it with a = 3
         restore a       ; brings back a = 1
 
-The "restore" may be followed by multiple symbol identifiers separated with
+A "restore" may be followed by multiple symbol identifiers separated with
 commas, and it discards the latest definition of every one of them. It is not
 considered an error to use "restore" with a symbol that has no active
 definition (either because it was never defined or because all of its
@@ -726,9 +728,11 @@ symbols that have no accessible definition. The expression is only tested for th
 availability of its components, it does not need to have a computable value.
 This can be used to check whether a symbol of expression class has been defined,
 but since the symbol can be accessible through forward-referencing, this condition
-may be true even when the symbol is defined later in source. The basic expression
-that follows "defined" is also allowed to be empty and the condition is then
-trivially satisfied.
+may be true even when the symbol is defined later in source. If this is undesirable,
+the "definite" operator should be used instead, as it checks whether all symbols
+within a basic expression that follows have been defined earlier.
+  The basic expression that follows "defined" is also allowed to be empty and
+the condition is then trivially satisfied. This does not apply to "definite".
   The "used" operator forms a logical value if it is followed by a single
 identifier. This condition is true when the value of specified symbol has
 been used anywhere in the source.
@@ -830,10 +834,10 @@ declares that the names from this list should in the context of current
 macroinstruction be interpreted as belonging to a special namespace
 associated with this macroinstruction instead of current base namespace. This
 allows to create unique symbols every time the macroinstruction is called.
-Such declaration defines an additional parameter with the specified name and it
-only affects the uses of that name that follow within the same macroinstruction.
-Declaring the same name as local multiple times within the same macroinstruction
-gives no additional effect.
+Such declaration defines additional parameters with the specified names and
+therefore only affects the uses of those names that follow within the same
+macroinstruction. Declaring the same name as local multiple times within
+the same macroinstruction gives no additional effect.
 
         macro measured name,string
                 local top
@@ -843,6 +847,12 @@ gives no additional effect.
 
         measured hello, 'Hello!'        ; hello.length = 6
 
+  A symbol that is local to a macroinstruction is never considered the most
+recent label that is base for symbols starting with dot. Moreover, its
+descendant namespace is disconnected from the main tree of symbols, so if
+"namespace" command was used with a local symbol as the argument, symbols
+from the main tree would no longer be visible (including all the named 
+instructions of the assembler, even commands like "end namespace").
   Just like an expression symbol may be redefined and refer to its previous
 value in the definition of the new one, the macroinstructions can also be
 redefined, and use the previous value of this instruction symbol in its
@@ -969,7 +979,7 @@ A similar rule applies to the "else" command and the instructions in the
   When an identifier consisting of a lone "?" character is used as an
 instruction symbol in the definition of macroinstruction, it defines a special
 instruction that is then called every time a line to be assembled does not
-begin with an unconditional instruction, and the complete text of line becomes
+contain an unconditional instruction, and the complete text of line becomes
 the arguments to this macroinstruction. This special symbol can also be defined
 as an unconditional instruction, and then it is called for every following line
 with no exception. This allows to completely override the assembly process on
@@ -1004,9 +1014,9 @@ identifier is of the labeled instruction class:
 
         get some        ; "db 1" is assembled here
 
-  Inside the labeled macroinstruction identifiers starting with dot no longer
-refer to the namespace of latest label in the current base namespace. Instead
-they refer to the namespace of label with which the instruction was labeled.
+  Inside a labeled macroinstruction identifiers starting with dot no longer
+refer to the namespace of a previously defined regular label. Instead they
+refer to the namespace of label with which the instruction was labeled.
 
         struc POINT
                 label . : qword
@@ -1018,9 +1028,11 @@ they refer to the namespace of label with which the instruction was labeled.
 
 Note that the parent symbol, which can be refered by "." identifier, is not
 defined unless an appropriate definition is generated by the macroinstruction.
-In the above example it is done with the "label" instruction. For an easier
-use of this feature, other syntaxes may be defined with macroinstructions,
-like in this sample:
+Furthermore, this symbol is not considered the most recent label in
+the surrounding namespace unless it gets defined as an actual label in
+the macroinstruction it labeled.
+  For an easier use of this feature, other syntaxes may be defined with
+macroinstructions, like in this sample:
 
         macro struct? definition&
                 struc definition
@@ -1064,8 +1076,8 @@ for "def" parameter:
         regular:
         assert orphan = regular
 
-This special variant does not override unconditional labeled instructions
-unless it is unconditional itself.
+Similarly to "macro" this special variant does not override unconditional labeled
+instructions unless it is unconditional itself.
   While "." provides an efficient method of accessing the label symbol, 
 sometimes it may be needed to process the actual text of the label.
 A special parameter can be defined for this purpose and its name should be
@@ -1166,14 +1178,14 @@ introduction of other instructions that operate on symbolic values.
 "redefine" is a variant of this instruction that discards the earlier value,
 analogously to "reequ".
   Note that while symbolic variables belong to the expression class of symbols,
-their state cannot be determined with operators like "defined" or "used",
-because an logical expression containing such operators is evaluated as if
-every symbolic variable was replaced with the text of corresponding value.
-Therefore "defined" followed by an identifer of symbolic variable is going to
-be applied to the content of this variable, whatever it is. For example if you
-create a symbolic variable which is simply a link to a regular symbol, the
-"defined" or "used" followed by the identifier of this symbolic variable is
-going to determine the status of linked symbol.
+their state cannot be determined with operators like "defined", "definite", 
+or "used", because a logical expression is evaluated as if every symbolic
+variable was replaced with the text of corresponding value. Therefore operator
+followed by an identifer of symbolic variable is going to be applied to
+the content of this variable, whatever it is. For example if a symbolic variable
+is made which is a link to a regular symbol, then any operator like "defined"
+followed by the identifier of said symbolic variable is going to determine
+the status of a linked symbol, not a linking variable.
 
 
 11. Repeating blocks of instructions
@@ -1770,7 +1782,7 @@ read earlier in the source, it can be achieved by copying this data into
 a different area that would not be constrained in such way. This is analogous
 to defining a constant with a final value of some variable:
 
-        load char from const:0
+        load char : byte from const:0
 
         virtual
                 var::
@@ -1778,7 +1790,7 @@ to defining a constant with a final value of some variable:
                 .length = $
         end virtual
 
-        store 'A' at var:0
+        store 'A' : byte at var:0
 
         virtual
                 const::
@@ -1805,6 +1817,10 @@ present in the original "virtual" block.
                 db 'Hello!',13,10
         end virtual
 
+  If an area label is used in an expression, it forms a variable term of a
+linear polynomial. The metadata of such term is a string "::", allowing
+to determine that area label was used to form the value, since metadata
+of terms made with "element" is always numeric.
   There is an additional variant of "load" and "store" directives that allows
 to read and modify already generated data in the output file given simply
 an offset within that output. This variant is recognized when the "at" or
