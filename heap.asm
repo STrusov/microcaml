@@ -342,7 +342,6 @@ b_index	equ rsi
 	jnz	.already_marked
 ;	Первичный маркер: заголовок сохраняется, добавляется индекс.
 	or	Val_header[b_base - sizeof value], rdx
-.check_block:
 ;	Проверяем тег, подлежит ли блок сканированию.
 ;	Блоки с тегами, начиная с No_scan_tag (251), пропускаются.
 ;	Infix_tag = 249, а Forward_tag (250) не используется,
@@ -350,6 +349,7 @@ b_index	equ rsi
 	cmp	sil, Infix_tag
 	ja	.block_searched
 	jz	.infix_tag_from_stack
+.check_block:
 	from_wosize b_index
 	jz	.empty_block			;; ?
 ;	Что бы не адресовать ячейки за пределами отображённых страниц памяти,
@@ -397,11 +397,14 @@ hdr	equ r14
 ;	дело с частью блока с Closure_tag, который следует обработать отдельно.
 	cmp	byte[b_ref - sizeof value], Infix_tag
 	jz	.infix_tag
+;	Блоки с тегами > Infix_tag не содержат ссылок (Forward_tag не используется).
+	ja	.no_scan_tags
 ;	(Если вложенные объекты сканировать сразу, на стеке приходится сохранять
 ;	b_base и b_index для каждого вложенного объекта, что приводит к затратам
 ;	памяти O(n) при обработке односвязных списков; в данном варианте для
 ;	таких списков получаем O(1), поскольку достаточно всего 1й ячейки стека.)
 	push	b_ref
+.no_scan_tags:
 	or	[b_ref - sizeof value], ref_idx
 	jmp	.search_block
 .infix_tag:
