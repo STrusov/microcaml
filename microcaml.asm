@@ -652,6 +652,14 @@ restore	intern_obj_table
 ;	Подготавливаем виртуальную машину и переходим к первой инструкции
 	mov	vm_pc, [.sect_code]
 
+;	Сохраняем в стеке адрес блока глобальных данных, для учёта сборщиком
+;	мусора. Границу младших адресов устанавливаем равной адресу заголовка
+;	данного блока.
+	mov	rax, [caml_global_data]
+	push	rax
+	sub	rax, sizeof value
+	mov	[heap_descriptor.gc_start], rax
+
 	interpreter_init
 	Instruct_next
 ;	ud2

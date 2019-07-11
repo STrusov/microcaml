@@ -681,25 +681,25 @@ end Instruct
 ; 4. Параметром передаётся Atom(0)
 ;
 ; Семантика глобальных объектов подразумевает, что они живут до завершения
-; приложения. В таком случае, динамичную часть кучи следует располагать за ними.
+; приложения. В таком случае, динамичную часть кучи хорошо бы располагать за
+; ними, сдвигая heap_descriptor.gc_start в сторону старших адресов.
+; Однако, иногда данный обработчик вызывается ближе к завершению программы.
+; Коме того (например, basic-more/tbuffer.ml), единственная ссылка на живущий
+; в куче блок может находиться в глобальном объекте, без её учёта такой блок
+; окажется удалён. Что, в текущей реализации сборщика мусора, делает необходимым
+; сканирование глобальных данных на стадии маркировки (т.е. heap_descriptor.gc_start
+; должен быть ниже).
+; Для обеспечения сохранности глобальных данных сохраним указатель на них
+; [caml_global_data] в стеке (см. main.read_items_finished:).
 Instruct	SETGLOBAL
 Instruct_stub
 ;	caml_modify(&Field(caml_global_data, *pc), accu);
-if HEAP_GC
-	push	accu
-	call	heap_mark_compact_gc
-	pop	accu
-end if
 	mov	eax, [opcode.1]
 	next_opcode
 	mov	rcx, [caml_global_data]
 	mov	[rcx + rax * sizeof value], accu
 	mov	accud, Val_unit
-if HEAP_GC
-	jmp	..heap_set_gc_start
-else
 	Instruct_next
-end if
 Instruct_size
 end Instruct
 
@@ -707,12 +707,7 @@ end Instruct
 Instruct	ATOM0
 ;	адрес за заголовком
 	lea	accu, [Atom 0]
-if HEAP_GC
-	jmp	.next
-..heap_set_gc_start:
-	heap_set_gc_start_address
-end if
-.next:	Instruct_next
+	Instruct_next
 Instruct_size
 end Instruct
 
