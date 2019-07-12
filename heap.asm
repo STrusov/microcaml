@@ -414,11 +414,11 @@ hdr	equ r14
 	or	[b_ref - sizeof value], ref_idx
 ;	Необходимо пометить блок, включающий данный, запланировав сканирование
 ;	его содержимого на стадии уплотнения. Маркируем, заменив Closure_tag на
-;	Infix_tag. Заголовок обрамляющего блока находится по отрицательному
+;	Closurerec_tag. Заголовок обрамляющего блока находится по отрицательному
 ;	смещению, по модулю равному wosize.
 	from_wosize hdr
 	not	hdr	; neg - 1
-	mov	byte[b_ref + hdr * sizeof value], Infix_tag
+	mov	byte[b_ref + hdr * sizeof value], Closurerec_tag
 	jmp	.search_block
 .already_marked_block:
 ;	Блок уже содержит индекс ссылки - его содержимое обработано.
@@ -446,11 +446,11 @@ restore	b_ref
 ;	не требующий отложенной обработки. Его заголовок помечен до перехода.
 ;	Необходимо пометить блок, включающий данный, запланировав сканирование
 ;	его содержимого на стадии уплотнения. Маркируем, заменив Closure_tag на
-;	Infix_tag. Заголовок обрамляющего блока находится по отрицательному
+;	Closurerec_tag. Заголовок обрамляющего блока находится по отрицательному
 ;	смещению, по модулю равному wosize.
 	from_wosize b_index
 	not	b_index	; neg - 1
-	mov	byte[b_base + b_index * sizeof value], Infix_tag
+	mov	byte[b_base + b_index * sizeof value], Closurerec_tag
 .block_searched:
 ;	Если стек запланированных блоков пуст, рекурсивная обработка
 ;	блока из кучи, адресуемого ссылкой со стека ВМ, завершена.
@@ -493,8 +493,8 @@ restore s_index
 	mov	rcx, rax
 	jnz	.live_block
 ;	Блоки с Closure_tag, содержащие подлежащие обработке блоки с Infix_tag,
-;	маркируются заменой тега на Infix_tag (см. .infix_tag:).
-	cmp	al, Infix_tag
+;	маркируются заменой тега на Closurerec_tag (см. .infix_tag:).
+	cmp	al, Closurerec_tag
 	jz	.closure_infix
 	from_wosize rax
 ;	Если 0 - формируется блок, размер которого будет определён позже.
@@ -592,9 +592,9 @@ restore s_index
 ;	Обрабатываем список ссылок, копирование блока произойдёт по его завершении.
 	jnz	.next_link
 ;.copy_block:
-;	Если был обработан заголовок блока с Infix_tag, следует обработать
+;	Если был обработан заголовок блока с Closurerec_tag, следует обработать
 ;	содержащиеся в нём инфиксы.
-	cmp	byte[alloc_small_ptr - sizeof value], Infix_tag
+	cmp	byte[alloc_small_ptr - sizeof value], Closurerec_tag
 	jz	.closure_infix_block
 .copy_block:
 ;	Если размер 0 - формируется блок, размер которого будет определён позже.
