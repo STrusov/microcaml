@@ -395,7 +395,7 @@ hdr	equ r14
 	jnz	.already_marked_block
 ;	Если ссылка на блок, предварённый заголовком с Infix_tag, значит имеем
 ;	дело с частью блока с Closure_tag, который следует обработать отдельно.
-	cmp	byte[b_ref - sizeof value], Infix_tag
+	cmp	r14l, Infix_tag	; hdr
 	jz	.infix_tag
 ;	Блоки с тегами > Infix_tag не содержат ссылок (Forward_tag не используется).
 	ja	.no_scan_tags
