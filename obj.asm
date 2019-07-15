@@ -80,8 +80,10 @@ C_primitive caml_obj_dup
 	from_wosize rcx
 	mov	rsi, rdi
 	lea	rdi, [alloc_small_ptr_backup + sizeof value]
-	mov	rax, rdi
+	mov	rax, rcx
+	neg	rax
 rep	movs	Val_header[rdi], [rsi]
+	lea	rax, [rdi + rax * sizeof value]
 	mov	alloc_small_ptr_backup, rdi
 	ret
 end C_primitive
