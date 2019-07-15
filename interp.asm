@@ -1682,9 +1682,9 @@ CLOSUREREC_impl:
 	stos	Val_header[alloc_small_ptr]
 	mov	rax, rsi
 ;	Если есть аргументы, первый из них в аккумуляторе. Копируем к остальным.
-	jecxz	.noarg
+	jecxz	.noargs
 	push	accu
-.noarg:	mov	rsi, rsp
+	mov	rsi, rsp
 ;	Сохраняем адрес блока для корректировки скопированных ссылок сборщиком мусора.
 	push	alloc_small_ptr
 ;	Адрес за блоками инфиксов (1й из них без заголовка)
@@ -1694,6 +1694,16 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 	mov	rsp, rsi
 	mov	rsi, alloc_small_ptr	; временно храним адрес за блоком
 	mov	alloc_small_ptr, accu
+	jmp	.infx
+.noargs:
+;	В случае, когда количество аргументов замыкания больше 0, их копирование
+;	в тело блока (rep movs выше) гарантирует, что сборщик мусора при создании
+;	инфиксов вызван не будет (т.к. первые располагаются в адресах старше,
+;	чем вторые). Если аргументов 0, форсируем вызов сборщика мусора.
+	test	qword[alloc_small_ptr + (rax - 1) * sizeof value ], 0
+	mov	accu, alloc_small_ptr
+	lea	rsi, [alloc_small_ptr + rax * sizeof value]	; временно храним адрес за блоком
+.infx:
 ;	Копируем указатели на код, предваряя их инфиксными заголовками, кроме 1го.
 ;	Такие указатели не могут быть ссылками на кучу, соответственно
 ;	не учитываются сборщиком мусора. Однако: Infix_tag < No_scan_tag - ???
@@ -1706,9 +1716,6 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 	shl	eax, wosize_shift + 1
 	or	eax, Infix_tag
 	stos	qword[alloc_small_ptr]
-;	Вызов сборщика мусора возможен в случае, если количество аргументов
-;	замыкания нулевое (иначе он произошёл бы выше). Данное сохранение адреса
-;	(в первой итерации цикла) на стеке должно обеспечить его безопасность.
 .cpp:	push	alloc_small_ptr
 	movsxd	rax, [vm_pc + rcx * sizeof opcode]
 	lea	rax, [vm_pc + rax * sizeof opcode]
