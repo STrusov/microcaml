@@ -327,8 +327,11 @@ rep	movs	qword[rdi], [rsi]
 	jnz	.cp_ar
 	test	rdx, not 0xff
 	jz	.atom0
-	mov	Val_header[alloc_small_ptr_backup], rdx
-	lea	rax, [alloc_small_ptr_backup + sizeof value]
+	mov	rax, rdx
+	from_wosize rax
+	neg	rax
+	lea	rax, [rdi + rax * sizeof value]
+	mov	Val_header[rax - sizeof value], rdx
 	mov	alloc_small_ptr_backup, rdi
 	ret
 .atom0:	lea	rax, [Atom 0]
