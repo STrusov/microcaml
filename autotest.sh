@@ -7,7 +7,14 @@ tests="
     basic-float
     "
 
+testlib="../ocaml/testsuite/lib"
+testmodule="testing"
+
 tmpdir=`mktemp -d --tmpdir microcamltest.XXX`
+
+cp ${testlib}/${testmodule}.ml{,i} ${tmpdir} || exit
+ocamlc -c ${tmpdir}/${testmodule}.mli
+ocamlc ${tmpdir}/${testmodule}.ml -I ${tmpdir} -a -o ${tmpdir}/${testmodule}.o
 
 for testdir in ${tests}
 do
@@ -19,8 +26,8 @@ do
         echo -ne "${filename} \t"
         cp ${filepath} ${tmpdir}
         bytecode=${tmpdir}/${filename%.ml}
-        ocamlc ${tmpdir}/${filename} -o ${bytecode}
-        rm ${tmpdir}/*.cm*
+        ocamlc ${tmpdir}/${testmodule}.cmo ${tmpdir}/${filename} -I ${tmpdir} -o ${bytecode} -w -3-8-11-12
+        rm ${bytecode}.cm*
         ${bytecode} > ${bytecode}.reference
         ./microcaml ${bytecode} > ${bytecode}.output
         diff -u ${bytecode}.output ${bytecode}.reference && echo '+' || exit
