@@ -884,7 +884,9 @@ C_primitive caml_nativeint_format
 ;	Копируем префикс формата, пока не встретится %
 .cp_fmt:
 ;	При отсутствии формата (символа '%') число не выводится.
-	jecxz	.exit0
+;	jecxz	.exit0
+	test	ecx, ecx
+	jz	.exit0
 	mov	al, [rdi]
 	inc	rdi
 	dec	ecx
@@ -897,18 +899,39 @@ C_primitive caml_nativeint_format
 	lea	r9d, [ecx - 1]
 	cmp	byte[rdi], 'd'
 	jz	.dec
+	cmp	byte[rdi], 'i'
+	jz	.dec
+	cmp	byte[rdi], 'u'
+	jz	.dec
 	cmp	byte[rdi], 'X'
 	jz	.HEX
 	cmp	byte[rdi], 'x'
 	jz	.hex
 	inc	r8
 	dec	r9d
-	cmp	word[rdi], 'nd'
+	mov	ax, [rdi]
+	cmp	ax, 'nd'
 	jz	.dec
-	cmp	word[rdi], 'lx'
+	cmp	ax, 'ni'
+	jz	.dec
+	cmp	ax, 'nu'
+	jz	.dec
+	cmp	ax, 'nx'
 	jz	.hex
-	cmp	word[rdi], 'Lx'
+	cmp	ax, 'nX'
+	jz	.HEX
+	or	al, 'l' xor 'L'
+	cmp	ax, 'ld'
+	jz	.dec
+	cmp	ax, 'li'
+	jz	.dec
+	cmp	ax, 'lu'
+	jz	.dec
+	cmp	ax, 'lx'
 	jz	.hex
+	cmp	ax, 'lX'
+	jz	.HEX
+	mov	al, '%'
 	jmp	.cpf
 .exit0:	mov	rdi, alloc_small_ptr_backup
 	jmp	.exit
