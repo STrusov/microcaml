@@ -156,20 +156,36 @@ end C_primitive
 end if
 
 
+if GENERIC_COMPARE
+caml_string_lessthan := caml_lessthan
+else
 C_primitive caml_string_lessthan
 end C_primitive
+end if
 
 
+if GENERIC_COMPARE
+caml_string_lessequal := caml_lessequal
+else
 C_primitive caml_string_lessequal
 end C_primitive
+end if
 
 
+if GENERIC_COMPARE
+caml_string_greaterthan := caml_greaterthan
+else
 C_primitive caml_string_greaterthan
 end C_primitive
+end if
 
 
+if GENERIC_COMPARE
+caml_string_greaterequal := caml_greaterequal
+else
 C_primitive caml_string_greaterequal
 end C_primitive
+end if
 
 
 caml_bytes_compare := caml_string_compare
