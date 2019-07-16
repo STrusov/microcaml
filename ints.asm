@@ -861,6 +861,38 @@ proc	format_nativeint_hex
 end proc
 
 
+; Преобразует число в восьмиричный текст, располагая строку в текущие адреса кучи.
+; Возвращает в RAX длину строки-результата.
+; RSI - беззнаковое целое.
+proc	format_nativeint_oct
+	zero	rdi
+	mov	ecx, sizeof value * 8 / 3
+;	1 + 21 * 3 бит. Обрабатываем старший разряд восьмиричного числа отдельно.
+	shl	rsi, 1
+	jc	.high1
+.skip_leading_zeroes:
+	mov	rax, rsi
+	shr	rax, sizeof value * 8 - 3
+	jnz	.od
+	shl	rsi, 3
+	loop	.skip_leading_zeroes
+	inc	ecx
+.oct_digit:
+	mov	rax, rsi
+	shr	rax, sizeof value * 8 - 3
+.od:	add	al, '0'
+	mov	[alloc_small_ptr_backup + rdi], al
+	inc	rdi
+	shl	rsi, 3
+	loop	.oct_digit
+	mov	rax, rdi
+	ret
+.high1:	mov	byte[alloc_small_ptr_backup], '1'
+	inc	rdi
+	jmp	.oct_digit
+end proc
+
+
 ; Преобразует число в OCaml-строку (с заголовком) согласно формата.
 ; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
 ; RSI - адрес блока с целым.
@@ -907,6 +939,8 @@ C_primitive caml_nativeint_format
 	jz	.HEX
 	cmp	byte[rdi], 'x'
 	jz	.hex
+	cmp	byte[rdi], 'o'
+	jz	.oct
 	inc	r8
 	dec	r9d
 	mov	ax, [rdi]
@@ -920,6 +954,8 @@ C_primitive caml_nativeint_format
 	jz	.hex
 	cmp	ax, 'nX'
 	jz	.HEX
+	cmp	ax, 'no'
+	jz	.oct
 	or	al, 'l' xor 'L'
 	cmp	ax, 'ld'
 	jz	.dec
@@ -931,11 +967,16 @@ C_primitive caml_nativeint_format
 	jz	.hex
 	cmp	ax, 'lX'
 	jz	.HEX
+	cmp	ax, 'lo'
+	jz	.oct
 	mov	al, '%'
 	jmp	.cpf
 .exit0:	mov	rdi, alloc_small_ptr_backup
 	jmp	.exit
 .dec:	call	format_nativeint_dec
+	jmp	.cp_fmt_tail
+.oct:	and	rsi, rdx
+	call	format_nativeint_oct
 	jmp	.cp_fmt_tail
 .HEX:	and	rsi, rdx
 	mov	dl, 'A'
