@@ -61,6 +61,7 @@ C_primitive caml_array_set_addr
 	cmp	rax, rsi
 	jbe	caml_array_bound_error
 	mov	[rdi + rsi * sizeof value], rdx
+	mov	eax, Val_unit
 	ret
 end C_primitive
 
