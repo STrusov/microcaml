@@ -57,6 +57,7 @@
 * lib-queue
 * lib-stack
 * match-exception-warnings
+* prim-bswap
 * prim-revapply
 
 (пофайловый список см. в autotest.result)

@@ -10,6 +10,7 @@ tests="
     lib-queue
     lib-stack
     match-exception-warnings
+    prim-bswap
     prim-revapply
     "
 
