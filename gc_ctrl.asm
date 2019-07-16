@@ -51,8 +51,7 @@ C_primitive caml_gc_major_slice
 end C_primitive
 
 
-C_primitive caml_gc_compaction
-end C_primitive
+caml_gc_compaction := caml_gc_full_major
 
 
 C_primitive caml_get_minor_free
