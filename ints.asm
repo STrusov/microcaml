@@ -166,7 +166,7 @@ end C_primitive
 ; RSI - целое (в OCaml-представлении).
 C_primitive caml_format_int
 	Int_val rsi
-	or	rdx, -1
+	mov	rdx, 1 shl 63 - 1
 	jmp	caml_nativeint_format.nint
 end C_primitive
 
