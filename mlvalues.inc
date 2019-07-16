@@ -93,20 +93,20 @@ Pair_tag	:=	0
 ; и зацикливание в basic-more/pr2719.ml.
 ; Должен отличаться от Forward_tag, см. соотв. комментарий.
 ;!!! Нужно ли модифицировать тег, не проще ли сразу создавать блок с ним?
-Closurerec_tag	:=	245
+Closurerec_tag	:=	245	; 0xf5
 
-Closure_tag	:=	247
-Object_tag	:=	248
-Infix_tag	:=	249
+Closure_tag	:=	247	; 0xf7
+Object_tag	:=	248	; 0xf8
+Infix_tag	:=	249	; 0xf9
 ; basic/patmatch.ml формирует объекты (caml_obj_set_tag) с тегом 250 (0xfa)
 ; где единственное поле равно 1.
-;Forward_tag	:=	250
+;Forward_tag	:=	250	; 0xfa
 
 ; Тэги со значением равным и выше не содержат указателей и не подлежат сканированию.
-No_scan_tag	:=	251
-;Abstract_tag	:=	251
+No_scan_tag	:=	251	; 0xfb
+;Abstract_tag	:=	251	; 0xfb
 
-String_tag	:=	252
-Double_tag	:=	253
-Double_array_tag :=	254
-Custom_tag	:=	255
+String_tag	:=	252	; 0xfc
+Double_tag	:=	253	; 0xfd
+Double_array_tag :=	254	; 0xfe
+Custom_tag	:=	255	; 0xff
