@@ -120,7 +120,17 @@ restore	sign
 end proc
 
 
+; Меняет местами байты в 16-ти разрядном представлении числа.
+; EDI - целое в OCaml представлении.
 C_primitive caml_bswap16
+	mov	eax, edi
+	shr	eax, 8
+	shl	edi, 8
+	and	eax, Val_int 0xff
+	and	edi, Val_int 0xff00
+	or	eax, edi
+	or	eax, 1
+	ret
 end C_primitive
 
 
@@ -349,7 +359,13 @@ C_primitive caml_int32_shift_right_unsigned
 end C_primitive
 
 
+; Меняет местами байты в 32-ти разрядном представлении числа.
+; RDI - адрес 32-битного целого.
 C_primitive caml_int32_bswap
+	int32_header
+	mov	rax, [int32_val + rdi]
+	bswap	eax
+	int32_ret rax	; обнуляем незначащие разряды
 end C_primitive
 
 
@@ -699,7 +715,13 @@ C_primitive caml_nativeint_shift_right_unsigned
 end C_primitive
 
 
+; Меняет местами байты в представлении числа.
+; RDI - адрес целого.
 C_primitive caml_nativeint_bswap
+	nativeint_header
+	mov	rax, [nativeint_val + rdi]
+	bswap	rax
+	nativeint_ret rax
 end C_primitive
 
 
