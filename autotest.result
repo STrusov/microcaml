@@ -34,3 +34,8 @@ bswap.ml 	+
 [1m Каталог prim-revapply:[22m
 apply.ml 	+
 revapply.ml 	+
+[1m Каталог translprim:[22m
+array_spec.ml 	+
+comparison_table.ml 	+
+module_coercion.ml 	+
+ref_spec.ml 	+

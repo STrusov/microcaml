@@ -59,5 +59,6 @@
 * match-exception-warnings
 * prim-bswap
 * prim-revapply
+* translprim
 
 (пофайловый список см. в autotest.result)

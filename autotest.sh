@@ -12,6 +12,7 @@ tests="
     match-exception-warnings
     prim-bswap
     prim-revapply
+    translprim
     "
 
 testlib="../ocaml/testsuite/lib"
