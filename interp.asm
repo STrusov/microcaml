@@ -921,7 +921,14 @@ end Instruct
 
 
 Instruct	SETFLOATFIELD
-
+	pop	rax
+	mov	ecx, [opcode.1]
+	next_opcode
+	mov	rax, [rax]
+	mov	[accu + rcx * sizeof value], rax
+	mov	accu, Val_unit
+	Instruct_next
+Instruct_size
 end Instruct
 
 
