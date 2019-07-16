@@ -877,11 +877,19 @@ C_primitive caml_nativeint_format
 	jz	.dec
 	cmp	byte[rdi], 'X'
 	jz	.HEX
+	cmp	byte[rdi], 'x'
+	jz	.hex
 	inc	r8
 	dec	r9d
 	cmp	word[rdi], 'nd'
 	jz	.dec
+	cmp	word[rdi], 'lx'
+	jz	.hex
+	cmp	word[rdi], 'Lx'
+	jz	.hex
 	jmp	.cpf
+.exit0:	mov	rdi, alloc_small_ptr_backup
+	jmp	.exit
 .dec:	call	format_nativeint_dec
 	jmp	.cp_fmt_tail
 .HEX:	and	rsi, rdx
@@ -900,8 +908,6 @@ rep	movs	byte[rdi], [rsi]
 	sub	rdi, alloc_small_ptr_backup
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
 	jmp	caml_alloc_string
-.exit0:	mov	rdi, alloc_small_ptr_backup
-	jmp	.exit
 end C_primitive
 
 
