@@ -53,5 +53,10 @@
 * array-functions
 * basic
 * basic-float
+* extension-constructor
+* lib-queue
+* lib-stack
+* match-exception-warnings
+* prim-revapply
 
 (пофайловый список см. в autotest.result)

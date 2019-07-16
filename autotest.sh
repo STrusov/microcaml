@@ -1,10 +1,16 @@
 #/bin/bash
 
 testsuite="../ocaml/testsuite/tests"
+
 tests="
     array-functions
     basic
     basic-float
+    extension-constructor
+    lib-queue
+    lib-stack
+    match-exception-warnings
+    prim-revapply
     "
 
 testlib="../ocaml/testsuite/lib"
@@ -26,7 +32,7 @@ do
         echo -ne "${filename} \t"
         cp ${filepath} ${tmpdir}
         bytecode=${tmpdir}/${filename%.ml}
-        ocamlc ${tmpdir}/${testmodule}.cmo ${tmpdir}/${filename} -I ${tmpdir} -o ${bytecode} -w -3-8-11-12
+        ocamlc ${tmpdir}/${testmodule}.cmo ${tmpdir}/${filename} -I ${tmpdir} -o ${bytecode} -w -3-8-11-12-26
         rm ${bytecode}.cm*
         ${bytecode} > ${bytecode}.reference
         ./microcaml ${bytecode} > ${bytecode}.output
