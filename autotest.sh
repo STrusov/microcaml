@@ -8,6 +8,7 @@ tests="
     basic-float
     extension-constructor
     lazy
+    letrec
     lib-queue
     lib-stack
     match-exception-warnings

@@ -25,6 +25,20 @@ tfloat_record.ml 	+
 test.ml 	+
 [1m Каталог lazy:[22m
 lazy1.ml 	+
+[1m Каталог letrec:[22m
+backreferences.ml 	+
+class_1.ml 	+
+class_2.ml 	+
+evaluation_order_1.ml 	+
+evaluation_order_2.ml 	+
+evaluation_order_3.ml 	+
+float_block_1.ml 	+
+float_block_2.ml 	+
+lists.ml 	+
+mixing_value_closures_1.ml 	+
+mixing_value_closures_2.ml 	+
+mutual_functions.ml 	+
+record_with.ml 	+
 [1m Каталог lib-queue:[22m
 test.ml 	+
 [1m Каталог lib-stack:[22m
