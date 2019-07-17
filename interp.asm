@@ -1713,9 +1713,14 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 ;	в тело блока (rep movs выше) гарантирует, что сборщик мусора при создании
 ;	инфиксов вызван не будет (т.к. первые располагаются в адресах старше,
 ;	чем вторые). Если аргументов 0, форсируем вызов сборщика мусора.
-	test	qword[alloc_small_ptr + (rax - 1) * sizeof value ], 0
+;	Сборщик мусора подразумевает, что при доступе через alloc_small_ptr
+;	его значение должно быть больше верхней границы выделенной памяти.
+	lea	alloc_small_ptr, [alloc_small_ptr + rax * sizeof value]
+	test	qword[alloc_small_ptr - sizeof value], 0
+	neg	rax
+	mov	rsi, alloc_small_ptr	; временно храним адрес за блоком
+	lea	alloc_small_ptr, [alloc_small_ptr + rax * sizeof value]
 	mov	accu, alloc_small_ptr
-	lea	rsi, [alloc_small_ptr + rax * sizeof value]	; временно храним адрес за блоком
 .infx:
 ;	Копируем указатели на код, предваряя их инфиксными заголовками, кроме 1го.
 ;	Такие указатели не могут быть ссылками на кучу, соответственно
