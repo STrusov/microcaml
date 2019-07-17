@@ -50,15 +50,14 @@ end C_primitive
 
 ; Резервирует место в куче под массив вещественных чисел.
 ; RDI - размер (OCaml value) размещаемого в памяти блока в словах.
-caml_alloc_dummy_float:
 ; На AMD64 вещественное число занимает столько же места, сколько другое значение.
-int3
+caml_alloc_dummy_float := caml_alloc_dummy
 
 
 ; Резервирует место в куче для функции.
 ; RDI - размер (OCaml value) размещаемого в памяти блока в словах.
 ; RSI - арность. В оригинале используется js_of_ocaml runtime.
-caml_alloc_dummy_function:
+caml_alloc_dummy_function := caml_alloc_dummy
 
 
 ; Резервирует место в куче.
