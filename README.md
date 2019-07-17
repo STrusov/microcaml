@@ -54,6 +54,7 @@
 * basic
 * basic-float
 * extension-constructor
+* lazy
 * lib-queue
 * lib-stack
 * match-exception-warnings

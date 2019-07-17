@@ -23,6 +23,8 @@ tfloat_hex.ml 	+
 tfloat_record.ml 	+
 [1m Каталог extension-constructor:[22m
 test.ml 	+
+[1m Каталог lazy:[22m
+lazy1.ml 	+
 [1m Каталог lib-queue:[22m
 test.ml 	+
 [1m Каталог lib-stack:[22m
