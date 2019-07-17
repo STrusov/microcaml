@@ -41,8 +41,12 @@ macro heap_set_limits
 end macro
 
 ; Макрос в том числе делает объекты в куче статическими, запрещая их удаление.
-macro heap_set_gc_start_address
-	mov	[heap_descriptor.gc_start], alloc_small_ptr
+macro heap_set_gc_start_address	start_addr
+	match addr, start_addr
+		mov	[heap_descriptor.gc_start], addr
+	else
+		mov	[heap_descriptor.gc_start], alloc_small_ptr
+	end match
 end macro
 
 ; Сборщик мусора активируется. Устанавливаются нижняя граница адресов кучи
