@@ -606,7 +606,10 @@ end Instruct
 
 
 Instruct	PUSHOFFSETCLOSUREM2
-
+	push	accu
+	lea	accu, [env - 2 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
@@ -619,7 +622,10 @@ end Instruct
 
 
 Instruct	PUSHOFFSETCLOSURE2
-
+	push	accu
+	lea	accu, [env + 2 * sizeof value]
+	Instruct_next
+Instruct_size
 end Instruct
 
 
