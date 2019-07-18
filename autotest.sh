@@ -24,7 +24,7 @@ tmpdir=`mktemp -d --tmpdir microcamltest.XXX`
 
 cp ${testlib}/${testmodule}.ml{,i} ${tmpdir} || exit
 ocamlc -c ${tmpdir}/${testmodule}.mli
-ocamlc ${tmpdir}/${testmodule}.ml -I ${tmpdir}
+ocamlc ${tmpdir}/${testmodule}.ml -I ${tmpdir} -a -o ${tmpdir}/${testmodule}.o
 
 for testdir in ${tests}
 do
