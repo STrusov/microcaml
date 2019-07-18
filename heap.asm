@@ -184,11 +184,19 @@ rsi14_ptr equ rcx
 	jz	.add_page
 ;	Сдвигаем живые объекты к началу кучи.
 	push	rsi14_ptr
+;	env (r13) может хранить ссылку на блок, который необходимо учитывать.
+;	Сохраним содержимое регистра в стеке прерванного потока,
+;	предварительно сохранив адрес структуры ucontext в стеке обработчика.
+	push	.ctx
 	mov	rbp, rsp
 	mov	rsp, [.ctx.uc_mcontext.rsp]
+	push	[.ctx.uc_mcontext.r13]
 	mov	alloc_small_ptr, uncommited
 	call	heap_mark_compact_gc
+	pop	rcx	; [.ctx.uc_mcontext.r13]
 	mov	rsp, rbp
+	pop	.ctx
+	mov	[.ctx.uc_mcontext.r13], rcx
 ;	После сборки мусора в ESI адрес за последним проверенным объектом,
 ;	а в r10 сохраняется значение uncommited (см. heap_mark_compact_gc).
 ;	Если адреса равны (началу неотображённой страницы), значит упомянутый

@@ -1624,17 +1624,17 @@ display_num_ln "MAKEFLOATBLOCK_impl: ", $-MAKEFLOATBLOCK_impl
 
 
 GRAB_extra:
-	lea	rcx, [extra_args + rax + 1]
+	lea	rcx, [extra_args + rax + 1 + 1]
 	lea	rax, [extra_args + rax + 1 + 2]
 	to_wosize rax
+;	env может хранить ссылку на блок, который необходимо сохранить.
+	push	env			; 1-е поле
 	or	rax, Closure_tag
 	stos	Val_header[alloc_small_ptr]
 	mov	rsi, rsp
 	push	alloc_small_ptr
 	lea	rax, [vm_pc - 3 * sizeof opcode]
 	stos	qword[alloc_small_ptr]	; 0-е поле
-	mov	rax, env
-	stos	qword[alloc_small_ptr]	; 1-е поле
 rep	movs	qword[alloc_small_ptr], [rsi]
 	pop	accu
 	mov	rsp, rsi
