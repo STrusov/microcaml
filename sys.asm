@@ -54,11 +54,43 @@ C_primitive caml_sys_getcwd
 end C_primitive
 
 
+; Возвращает строку со значением переменной окружения.
+; RDI - адрес строки с именем переменной окружения.
 C_primitive caml_sys_unsafe_getenv
+	caml_string_length rdi, rdx, rcx	; rdx длина строки
+	jz	caml_raise_not_found		; флаги установлены макросом
+	mov	r8, [environment_variables]
+.check_var_name:
+	mov	rsi, [r8]
+	test	rsi, rsi
+	jz	caml_raise_not_found
+	add	r8, 8
+	zero	ecx
+.scmp:	lods	byte[rsi]
+	cmp	[rdi + rcx], al
+	jnz	.check_var_name
+	inc	ecx
+	cmp	ecx, edx
+	jnz	.scmp
+	lods	byte[rsi]
+	cmp	al, '='
+	jnz	.check_var_name
+.found:	zero	edi
+	mov	Val_header[alloc_small_ptr_backup], String_tag
+.copy:	lods	byte[rsi]
+	mov	[alloc_small_ptr_backup + rdi + sizeof value], al
+	inc	edi
+	test	al, al
+	jnz	.copy
+	dec	edi
+	jmp	caml_alloc_string
 end C_primitive
 
 
+;!!! следует выполнить проверки аналогичные secure_getenv
 C_primitive caml_sys_getenv
+C_primitive_stub
+	jmp	caml_sys_unsafe_getenv
 end C_primitive
 
 

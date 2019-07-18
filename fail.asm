@@ -77,3 +77,7 @@ end macro
 proc	caml_raise_zero_divide
 	caml_raise_constant	ZERO_DIVIDE_EXN
 end proc
+
+proc	caml_raise_not_found
+	caml_raise_constant	NOT_FOUND_EXN
+end proc

@@ -153,6 +153,11 @@ main:
 	jmp	sys_exit
 .1arg:	mov	rdi, [rsp + 16]	; argv
 	mov	[bytecode_filename], rdi
+;	Переменные окружения находятся через argc+1 (завершающий 0-й указатель)
+;	слов после argv (rsp + 8)
+	lea	rdx, [rsp + 8 + (rcx + 1) * 8]
+	mov	[environment_variables], rdx
+
 	sub	rsp, .stack_size
 
 ;	Арифметический сопроцессор настроен как требует IEEE
@@ -746,6 +751,8 @@ error_sigsegv_handler	db 'SIGSEGV', 10, 0
 ;segment readable writeable
 section '.data' writeable align 4096
 
+; Начальный адрес массива указателей на строки с переменными окружения.
+environment_variables	dq ?
 bytecode_filename	dq ?
 
 oo_last_id	value	Val_int_0
