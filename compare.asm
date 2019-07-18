@@ -154,6 +154,8 @@ ud2
 	mov	rax, rdx
 	sub	rax, rcx
 	cmovc	rcx, rdx
+	test	rcx, rcx
+	jz	.str_e
 .str_c:	mov	dl, [val1]
 	cmp	dl, [val2]
 	lea	val1, [val1 + 1]
@@ -162,7 +164,7 @@ ud2
 	dec	rcx
 	jnz	.str_c
 ;	Если длины строк совпадают, продолжаем сравнение оставшихся элементов.
-	test	rax, rax
+.str_e:	test	rax, rax
 	jz	.next_item
 	jmp	.result
 ;	Сравниваем вещественные числа.

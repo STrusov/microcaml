@@ -106,6 +106,9 @@ end C_primitive
 ; Val_false - строки различаются.
 ; RDI - 1-я строка;
 ; RSI - 2-я строка.
+if 0;GENERIC_COMPARE
+caml_string_equal := caml_equal
+else
 C_primitive caml_string_equal
 	mov	eax, Val_true
 .cmp:	mov	rcx, Val_header[rsi - sizeof value]
@@ -123,6 +126,7 @@ C_primitive caml_string_equal
 .ret_n:	xor	eax, Val_true xor Val_false
 	ret
 end C_primitive
+end if
 
 
 caml_bytes_equal := caml_string_equal
@@ -133,10 +137,14 @@ caml_bytes_equal := caml_string_equal
 ; Val_false - строки идентичны;
 ; RDI - 1-я строка;
 ; RSI - 2-я строка.
+if 0;GENERIC_COMPARE
+caml_string_notequal := caml_notequal
+else
 C_primitive caml_string_notequal
 	mov	eax, Val_false
 	jmp	caml_string_equal.cmp
 end C_primitive
+end if
 
 
 caml_bytes_notequal := caml_string_notequal
