@@ -11,6 +11,8 @@ tests="
     letrec
     lib-queue
     lib-stack
+    lib-string
+    lib-uchar
     match-exception-warnings
     prim-bswap
     prim-revapply

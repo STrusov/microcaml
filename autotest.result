@@ -43,6 +43,10 @@ record_with.ml 	+
 test.ml 	+
 [1m Каталог lib-stack:[22m
 test.ml 	+
+[1m Каталог lib-string:[22m
+test_string.ml 	+
+[1m Каталог lib-uchar:[22m
+test.ml 	+
 [1m Каталог match-exception-warnings:[22m
 exhaustiveness_warnings.ml 	+
 [1m Каталог prim-bswap:[22m
