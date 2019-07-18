@@ -94,7 +94,9 @@ execute_instruction:
 	next_opcode
 	jmp	rax
 .stop:	ud2
+if defined DISPLAY_INSTRUCTION_SIZE
 display_num_ln 'Размер трамплина: ', $ - execute_instruction
+end if
 
 
 macro Instruct_next
@@ -114,10 +116,12 @@ end macro
 ..INSTRUCT_IMPLEMENTED = 0
 INSTRUCT_NAMES equ
 
+;DISPLAY_INSTRUCTION_SIZE := 1
 
 macro Instruct name
 ;lbl_#name:
 Instruct_#name:
+	.stub = 0
 	.instruct_name equ `name
 	..INSTRUCT_COUNT = ..INSTRUCT_COUNT + 1
 	INSTRUCT_NAMES equ INSTRUCT_NAMES, `name
@@ -125,6 +129,10 @@ Instruct_#name:
 	if ($-ELF.SECTION_BASE) mod instruction_size <> 0
 		err 'Инструкции должны быть выровнены'
 	end if
+end macro
+
+macro Instruct_size
+	display_num_ln <.instruct_name, ': '> , $ - .
 end macro
 
 macro end?.Instruct!
@@ -138,6 +146,13 @@ macro end?.Instruct!
 		jmp	undefined_instruction
 	else
 		..INSTRUCT_IMPLEMENTED = ..INSTRUCT_IMPLEMENTED + 1
+		if .stub & defined DISPLAY_INSTRUCTION_SIZE
+			display_num_ln <.instruct_name, ' stub: '> , $ - .
+		else if defined DISPLAY_INSTRUCTION_SIZE
+			Instruct_size
+		else if .stub
+			display .instruct_name, ' stub', 10
+		end if
 	end if
 	align_code instruction_size
 ;	display_num_ln ' ' , .end - .
@@ -147,12 +162,8 @@ macro end?.Instruct!
 	purge .instruct_name
 end macro
 
-macro Instruct_size
-	display_num_ln <.instruct_name, ': '> , $ - .
-end macro
-
 macro Instruct_stub
-	display 'stub '
+	.stub = 1
 end macro
 
 
@@ -162,7 +173,6 @@ vm_base_lbl:
 Instruct	ACC0
 	mov	accu, [vm_sp.0]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -213,21 +223,18 @@ Instruct	ACC
 	next_opcode
 	mov	accu, [vm_sp + rax * sizeof vm_sp]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	PUSH_ ; идентична PUSHACC0
 	push	accu
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	PUSHACC0
 	push	accu
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -235,7 +242,6 @@ Instruct	PUSHACC1
 	push	accu
 	mov	accu, [vm_sp.1]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -243,7 +249,6 @@ Instruct	PUSHACC2
 	push	accu
 	mov	accu, [vm_sp.2]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -251,7 +256,6 @@ Instruct	PUSHACC3
 	push	accu
 	mov	accu, [vm_sp.3]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -259,7 +263,6 @@ Instruct	PUSHACC4
 	push	accu
 	mov	accu, [vm_sp.4]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -267,7 +270,6 @@ Instruct	PUSHACC5
 	push	accu
 	mov	accu, [vm_sp.5]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -275,7 +277,6 @@ Instruct	PUSHACC6
 	push	accu
 	mov	accu, [vm_sp.6]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -283,7 +284,6 @@ Instruct	PUSHACC7
 	push	accu
 	mov	accu, [vm_sp.7]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -293,7 +293,6 @@ Instruct	PUSHACC
 	next_opcode
 	mov	accu, [vm_sp + rax * sizeof vm_sp]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -302,7 +301,6 @@ Instruct	POP_
 	next_opcode
 	lea	rsp, [rsp+rax*8]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -312,35 +310,30 @@ Instruct	ASSIGN
 	mov	[rsp + rax * sizeof value], accu
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	ENVACC1
 	mov	accu, [env + 1 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	ENVACC2
 	mov	accu, [env + 2 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	ENVACC3
 	mov	accu, [env + 3 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	ENVACC4
 	mov	accu, [env + 4 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -361,7 +354,6 @@ Instruct	PUSHENVACC1
 	push	accu
 	mov	accu, [env + 1 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -369,7 +361,6 @@ Instruct	PUSHENVACC2
 	push	accu
 	mov	accu, [env + 2 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -377,7 +368,6 @@ Instruct	PUSHENVACC3
 	push	accu
 	mov	accu, [env + 3 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -390,7 +380,6 @@ Instruct	PUSHENVACC
 	push	accu
 	envacc
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -403,7 +392,6 @@ Instruct	PUSH_RETADDR
 	push	rax
 	next_opcode
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -427,7 +415,6 @@ Instruct	APPLY1
 	mov	env, accu
 	zero	extra_args
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -444,7 +431,6 @@ Instruct	APPLY2
 .pc:	mov	vm_pc, [accu]
 	mov	env, accu
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -461,7 +447,6 @@ Instruct	APPLY3
 	push	rax
 	mov	extra_args, 2
 	jmp	Instruct_APPLY2.pc
-Instruct_size
 end Instruct
 
 
@@ -475,7 +460,6 @@ Instruct	APPTERM
 .copy:	mov	rsi, [rsp + rcx * sizeof value]
 	mov	[rax + rcx * sizeof value], rsi
 	jmp	..APPTERM_tail
-Instruct_size
 end Instruct
 
 
@@ -492,7 +476,6 @@ Instruct	APPTERM1
 	jns	Instruct_APPTERM.copy
 	mov	rsp, rax
 	jmp	.br
-Instruct_size
 end Instruct
 
 
@@ -505,7 +488,6 @@ Instruct	APPTERM2
 	mov	env, accu
 	inc	extra_args
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -518,7 +500,6 @@ Instruct	APPTERM3
 	mov	env, accu
 	add	extra_args, 2
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -536,7 +517,6 @@ Instruct	RETURN
 .extra_args:
 	dec	extra_args
 	jmp	Instruct_APPTERM1.br
-Instruct_size
 end Instruct
 
 
@@ -549,7 +529,6 @@ Instruct	RESTART
 	loopnz	.@
 	mov	env, [env + 1 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -559,7 +538,6 @@ Instruct	GRAB
 	sub	extra_args, rax
 	jc	GRAB_extra
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -569,7 +547,6 @@ end Instruct
 ; 2. Относительный адрес замыкания (смещение для счётчика инструкций).
 Instruct	CLOSURE
 	jmp	CLOSURE_impl
-Instruct_size
 end Instruct
 
 
@@ -581,7 +558,6 @@ end Instruct
 ;     адрес замыкания.
 Instruct	CLOSUREREC
 	jmp	CLOSUREREC_impl
-Instruct_size
 end Instruct
 
 
@@ -609,7 +585,6 @@ Instruct	PUSHOFFSETCLOSUREM2
 	push	accu
 	lea	accu, [env - 2 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -617,7 +592,6 @@ Instruct	PUSHOFFSETCLOSURE0
 	push	accu
 	mov	accu, env
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -625,7 +599,6 @@ Instruct	PUSHOFFSETCLOSURE2
 	push	accu
 	lea	accu, [env + 2 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -635,7 +608,6 @@ Instruct	PUSHOFFSETCLOSURE
 	next_opcode
 	lea	accu, [env + accu * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -646,14 +618,12 @@ Instruct	GETGLOBAL
 	mov	accu, [caml_global_data]
 	mov	accu, [accu + rax * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	PUSHGETGLOBAL
 	push	accu
 	jmp	Instruct_GETGLOBAL
-Instruct_size
 end Instruct
 
 
@@ -666,14 +636,12 @@ Instruct	GETGLOBALFIELD
 	mov	accu, [accu + rax * sizeof value]
 	next_opcode 2
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	PUSHGETGLOBALFIELD
 	push	accu
 	jmp	Instruct_GETGLOBALFIELD
-Instruct_size
 end Instruct
 
 
@@ -706,7 +674,6 @@ Instruct_stub
 	mov	[rcx + rax * sizeof value], accu
 	mov	accud, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -714,7 +681,6 @@ Instruct	ATOM0
 ;	адрес за заголовком
 	lea	accu, [Atom 0]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -757,7 +723,6 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 	pop	accu	; адрес блока (за заголовком) скорректирован сборщиком мусора
 	mov	rsp, rsi
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -775,7 +740,6 @@ Instruct	MAKEBLOCK1
 	mov	rsp, rsi
 	lea     accu, [alloc_small_ptr - 1 * sizeof value]      ; Адрес блока (за заголовком).
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -798,7 +762,6 @@ Instruct	MAKEBLOCK2
 	pop	accu	; адрес блока (за заголовком) скорректирован сборщиком мусора
 	mov	rsp, rsi
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -819,7 +782,6 @@ Instruct	MAKEBLOCK3
 	pop	accu	; адрес блока (за заголовком) скорректирован сборщиком мусора
 	mov	rsp, rsi
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -839,21 +801,18 @@ end Instruct
 Instruct	GETFIELD1
 	mov	accu, [accu + 1 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	GETFIELD2
 	mov	accu, [accu + 2 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	GETFIELD3
 	mov	accu, [accu + 3 * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -862,7 +821,6 @@ Instruct	GETFIELD
 	next_opcode
 	mov	accu, [accu + rax * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -875,7 +833,6 @@ Instruct	GETFLOATFIELD
 	stos	qword[alloc_small_ptr]
 	lea	accu, [alloc_small_ptr - sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -884,7 +841,6 @@ Instruct	SETFIELD0
 	mov	[accu + 0 * sizeof value], rax
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -893,7 +849,6 @@ Instruct	SETFIELD1
 	mov	[accu + 1 * sizeof value], rax
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -902,7 +857,6 @@ Instruct	SETFIELD2
 	mov	[accu + 2 * sizeof value], rax
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -911,7 +865,6 @@ Instruct	SETFIELD3
 	mov	[accu + 3 * sizeof value], rax
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -922,7 +875,6 @@ Instruct	SETFIELD
 	mov	[accu + rcx * sizeof value], rax
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -934,7 +886,6 @@ Instruct	SETFLOATFIELD
 	mov	[accu + rcx * sizeof value], rax
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -943,7 +894,6 @@ Instruct	VECTLENGTH
 	from_wosize accu
 	Val_int	accu
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -952,7 +902,6 @@ Instruct	GETVECTITEM
 	Int_val	rcx
 	mov	accu, [accu + rcx * sizeof value]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -964,7 +913,6 @@ Instruct	SETVECTITEM
 	mov	[accu + rcx * sizeof value], rax
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -974,7 +922,6 @@ Instruct	GETSTRINGCHAR
 	movzx	accud, byte[accu + rcx]
 	Val_int	accud
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -986,7 +933,6 @@ Instruct	SETSTRINGCHAR
 	mov	[accu + rcx], al
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 ; Переходы, в том числе условные
@@ -995,7 +941,6 @@ Instruct	BRANCH
 	movsxd	rax, [opcode.1]
 	lea	vm_pc, [opcode.1 + rax * sizeof opcode]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1006,7 +951,6 @@ Instruct	BRANCHIF
 	next_opcode
 	cmovnz	vm_pc, rax
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1017,7 +961,6 @@ Instruct	BRANCHIFNOT
 	next_opcode
 	cmovz	vm_pc, rax
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1034,7 +977,6 @@ Instruct	BOOLNOT
 	mov	eax, Val_true
 	cmove	accud, eax
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1050,7 +992,6 @@ Instruct	PUSHTRAP
 	push	rax
 	mov	caml_trapsp, rsp
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1060,7 +1001,6 @@ Instruct_stub
 	mov	caml_trapsp, [vm_sp.1]
 	lea	rsp, [vm_sp.4]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1077,7 +1017,6 @@ Instruct	RAISE
 	pop	extra_args
 	Int_val	extra_args
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1085,7 +1024,6 @@ Instruct	CHECK_SIGNALS
 Instruct_stub
 	;       if (caml_something_to_do) goto process_signal;
 	Instruct_next
-Instruct_size
 end Instruct
 
 ; Вызов С функций
@@ -1096,7 +1034,6 @@ Instruct	C_CALL1
 	mov	alloc_small_ptr_backup, alloc_small_ptr	; rdi
 	mov	rdi, accu	; 1й
 	jmp	Instruct_C_CALL2.exec
-Instruct_size
 end Instruct
 
 
@@ -1110,7 +1047,6 @@ Instruct	C_CALL2
 	mov	accu, rax
 	mov	alloc_small_ptr, alloc_small_ptr_backup	; rdi
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1122,7 +1058,6 @@ Instruct	C_CALL3
 	pop	rsi		; 2й
 	pop	rdx		; 3й (accu)
 	jmp	Instruct_C_CALL2.exec
-Instruct_size
 end Instruct
 
 
@@ -1135,7 +1070,6 @@ Instruct	C_CALL4
 	pop	rdx		; 3й (accu)
 	pop	rcx		; 4й
 	jmp	Instruct_C_CALL2.exec
-Instruct_size
 end Instruct
 
 
@@ -1149,7 +1083,6 @@ Instruct	C_CALL5
 	pop	rcx		; 4й
 	pop	r8		; 5й
 	jmp	Instruct_C_CALL2.exec
-Instruct_size
 end Instruct
 
 
@@ -1162,28 +1095,24 @@ end Instruct
 Instruct	CONST0
 	mov	accu, Val_int 0
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	CONST1
 	mov	accu, Val_int 1
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	CONST2
 	mov	accu, Val_int 2
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	CONST3
 	mov	accu, Val_int 3
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1192,7 +1121,6 @@ Instruct	CONSTINT
 	lea	accu, [Val_int accu]
 	next_opcode
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1200,7 +1128,6 @@ Instruct	PUSHCONST0
 	push	accu
 	mov	accud, Val_int 0
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1208,7 +1135,6 @@ Instruct	PUSHCONST1
 	push	accu
 	mov	accud, Val_int 1
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1216,7 +1142,6 @@ Instruct	PUSHCONST2
 	push	accu
 	mov	accud, Val_int 2
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1224,7 +1149,6 @@ Instruct	PUSHCONST3
 	push	accu
 	mov	accud, Val_int 3
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1235,7 +1159,6 @@ Instruct	PUSHCONSTINT
 	lea	accu, [Val_int accu]
 	next_opcode
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1243,7 +1166,6 @@ Instruct	NEGINT
 	neg	accu
 	add	accu, 2
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1251,7 +1173,6 @@ Instruct	ADDINT
 	pop	rax
 	lea	accu, [accu + rax - 1]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1260,7 +1181,6 @@ Instruct	SUBINT
 	sub	accu, rax
 	add	accu, 1
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1285,7 +1205,6 @@ Instruct	DIVINT
 	idiv	rcx
 	lea	accu, [rax * 2 + 1]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1300,7 +1219,6 @@ Instruct	MODINT
 	idiv	rcx
 	lea	accu, [rdx * 2 + 1]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1308,7 +1226,6 @@ Instruct	ANDINT
 	pop	rcx
 	and	accu, rcx
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1316,7 +1233,6 @@ Instruct	ORINT
 	pop	rcx
 	or	accu, rcx
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1324,7 +1240,6 @@ Instruct	XORINT
 	pop	rcx
 	xor	accu, rcx
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1335,7 +1250,6 @@ Instruct	LSLINT
 	shl	accu, cl
 	or	accu, Val_int_0
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1345,7 +1259,6 @@ Instruct	LSRINT
 	shr	accu, cl
 	or	accu, Val_int_0
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1355,7 +1268,6 @@ Instruct	ASRINT
 	sar	accu, cl
 	or	accu, Val_int_0
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1371,42 +1283,36 @@ end macro
 Instruct	EQ
 	INTcc	E
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	NEQ
 	INTcc	NE
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	LTINT
 	INTcc	L
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	LEINT
 	INTcc	LE
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	GTINT
 	INTcc	G
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	GEINT
 	INTcc	GE
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1415,7 +1321,6 @@ Instruct	OFFSETINT
 	next_opcode
 	lea	accu, [accu + rax*2]
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1426,7 +1331,6 @@ Instruct	OFFSETREF
 	add	[accu + 0 * sizeof value], rax
 	mov	accu, Val_unit
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1434,7 +1338,6 @@ Instruct	ISINT
 	and	accu, 1
 	Val_int	accu
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1457,42 +1360,36 @@ end macro
 Instruct	BEQ
 	BccINT	E
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	BNEQ
 	BccINT	NE
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	BLTINT
 	BccINT	L
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	BLEINT
 	BccINT	LE
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	BGTINT
 	BccINT	G
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	BGEINT
 	BccINT	GE
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1512,14 +1409,12 @@ purge INTcc
 Instruct	BULTINT
 	BccINT	NAE
 	Instruct_next
-Instruct_size
 end Instruct
 
 
 Instruct	BUGEINT
 	BccINT	AE	; nc
 	Instruct_next
-Instruct_size
 end Instruct
 
 
@@ -1539,7 +1434,6 @@ Instruct_stub
 ;	jnz	.not_cached
 	mov	accu, [rax + 2 * sizeof value + rcx]
 	Instruct_next
-Instruct_size
 .not_cached:
 end Instruct
 
@@ -1568,14 +1462,12 @@ end Instruct
 Instruct	RERAISE
 ; Отличается от RAISE 4-м аргументом caml_stash_backtrace.
 	jmp	Instruct_RAISE
-Instruct_size
 end Instruct
 
 
 Instruct	RAISE_NOTRACE
 ; В отличии от RAISE не вызывает caml_stash_backtrace.
 	jmp	Instruct_RAISE
-Instruct_size
 end Instruct
 
 
@@ -1591,7 +1483,9 @@ SWITCH_impl:
 .int:	mov	eax, [vm_pc + rax * sizeof opcode]
 	lea	vm_pc, [vm_pc + rax * sizeof opcode]
 	Instruct_next
+if defined DISPLAY_INSTRUCTION_SIZE
 display_num_ln "SWITCH_impl: ", $-SWITCH_impl
+end if
 
 
 ; Процедура читает со стека ссылки на вещественные числа и переносит значения
@@ -1620,7 +1514,9 @@ MAKEFLOATBLOCK_impl:
 	neg	accu
 	lea	accu, [alloc_small_ptr + accu * sizeof value]
 	Instruct_next
+if defined DISPLAY_INSTRUCTION_SIZE
 display_num_ln "MAKEFLOATBLOCK_impl: ", $-MAKEFLOATBLOCK_impl
+end if
 
 
 GRAB_extra:
@@ -1643,7 +1539,10 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 	pop	extra_args
 	Int_val	extra_args
 	Instruct_next
+if defined DISPLAY_INSTRUCTION_SIZE
 display_num_ln "GRAB_extra: ", $-GRAB_extra
+end if
+
 
 ; При размещении блока, во время копирования аргументов замыкания со стека на кучу,
 ; возможен вызов сборщика мусора. Поскольку эти значения могут представлять собой
@@ -1673,7 +1572,9 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 	mov	rsp, rsi
 	next_opcode 2
 	Instruct_next
+if defined DISPLAY_INSTRUCTION_SIZE
 display_num_ln "CLOSURE_impl: ", $-CLOSURE_impl
+end if
 
 
 ; В данном случае формирование блока после заголовка происходит в два этапа:
@@ -1744,8 +1645,10 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 ;	next_opcode r8
 	lea	vm_pc, [vm_pc + r8 * sizeof opcode]
 	mov	alloc_small_ptr, rsi
-	Instruct_next	
+	Instruct_next
+if defined DISPLAY_INSTRUCTION_SIZE
 display_num_ln "CLOSUREREC_impl: ", $-CLOSUREREC_impl
+end if
 
 
 vm_end_lbl:
