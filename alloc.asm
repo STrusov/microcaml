@@ -19,27 +19,38 @@ end proc
 ; EDI - целое; количество байт для строки.
 ; Возвращает адрес строки (за заголовком).
 proc caml_alloc_string
-	mov	ecx, edi
+	mov	eax, edi
 ;	size = (len + sizeof(value)) / sizeof(value);
 	add	edi, sizeof value
 	and	edi, not (sizeof value - 1)
 	mov	edx, edi
 	dec	edx
-	sub	edx, ecx
+	sub	edx, eax
 	and	edx, (sizeof value - 1)
-	mov	ecx, edi
-	shr	ecx, sizeof_value_log2
+	mov	eax, edi
+	shr	eax, sizeof_value_log2
 ;	shr	rdi, sizeof_value_log2
 ;	to_wosize rdi
 	shl	rdi, wosize_shift - sizeof_value_log2
 	or	rdi, String_tag
 	mov	Val_header[alloc_small_ptr_backup], rdi
 ;	Завершающий байт = размер блока в байтах - 1 - длина строки
-	mov	[alloc_small_ptr_backup + (1 + rcx) * sizeof value - 1], dl
+;	равен количеству байт в последнем слове, не принадлежащих строке.
+;	Обнулим чужие байты.
+	mov	ecx, edx
+	or	rsi, -1
+	shl	ecx, 3	; *8
+	shr	rsi, 8
+	shr	rsi, cl
+	shl	rdx, 7 * 8
+	and	rsi, [alloc_small_ptr_backup + rax * sizeof value]
+	or	rdx, rsi
+	mov	[alloc_small_ptr_backup + rax * sizeof value], rdx
 ;	Предыдущая команда может изменить содержимое alloc_small_ptr_backup,
 ;	потому порядок выполнения важен.
-	lea	rax, [alloc_small_ptr_backup + sizeof value]
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (rcx + 1) * sizeof value]
+	lea	rdx, [alloc_small_ptr_backup + sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (rax + 1) * sizeof value]
+	mov	rax, rdx
 	ret
 end proc
 
