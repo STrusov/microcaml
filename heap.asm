@@ -520,6 +520,8 @@ restore s_index
 ;	and	eax, Max_wosize - лишнее т.к. старшие биты проверены на 0
 	lea	rsi, [rsi + rax * sizeof value]
 	jmp	.compact
+.compact_end:
+	ret
 
 .closure_infix:
 ;	Такие блоки изначально создаются CLOSUREREC.
@@ -546,7 +548,7 @@ restore s_index
 	mov	rdx, .mark_mask
 	test	rdx, rax
 	jz	.copy_closure_element
-	push	rcx
+	mov	[rsp - 8], rcx
 ;	см. .live_block:
 ;	Упрощено, т.к. нет (?) отрицательных индексов и блок целиком в куче.
 	mov	rcx, rax
@@ -560,7 +562,7 @@ restore s_index
 	zero	rdx
 	cmp	rcx, s_size
 	cmovnc	rdx, s_size
-	lea	s_base, [rsp + 8]	; компенсируем push rcx
+	lea	s_base, [rsp]
 	cmovnc	s_base, rsi
 	sub	rcx, rdx
 ;	Ссылка либо равна хранящейся в источнике, либо вместо неё находится
@@ -570,7 +572,7 @@ restore s_index
 	mov	[s_base + rcx * sizeof value], alloc_small_ptr
 ;	Обрабатываем список ссылок, копирование блока произойдёт по его завершении.
 	jnz	.next_infix_link
-	pop	rcx
+	mov	rcx, [rsp - 8]
 ;	После инфиксного заголовка расположен 1 указатель на код, копируем.
 	movs	qword[alloc_small_ptr], [rsi]
 	sub	ecx, 2
@@ -635,10 +637,12 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 .next_link:
 	mov	rcx, rdx
 	jmp	.correct_link
+
 .closure_infix_block:
 	mov	rcx, Val_header[alloc_small_ptr - sizeof value]
 	mov	byte[alloc_small_ptr - sizeof value], Closure_tag
 	jmp	.closure_tail
+
 .scan_block:
 	mov	rax, [rsi]
 	mov	[alloc_small_ptr], rax
@@ -714,9 +718,7 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 
 .empty_block:
 ud2
-.compact_end:
 restore s_base
 restore s_size
 restore gc_end
-	ret
 end proc
