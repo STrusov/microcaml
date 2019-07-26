@@ -287,8 +287,10 @@ end proc
 ;    ↑                                      |
 ; [root3: индекс root2 + адрес данных2*] <--+
 ;
-; *сохраняются младшие разряды адреса (для поиска ячейки со ссылкой в случаях,
-;  когда блок с ней сдвинут при уплотнении, см. .negative_idx: и .find_link: ).
+; *сохраняются младшие разряды адреса блока (для проверки не находится ли блок
+;  в адресах после ссылки; в таком случае его заголовок содержит отрицательный
+;  индекс, требующий корректировки из-за сдвига ссылки при уплотнении.
+;  см. .scan_block: и .scan_ptr: ).
 ;
 ; См. так же для примера: Mark-Compact GC, sliding algorithm.
 ; https://www.cs.tau.ac.il/~maon/teaching/2014-2015/seminar/seminar1415a-lec2-mark-sweep-mark-compact.pdf
@@ -588,16 +590,17 @@ restore s_index
 	sar	rcx, ..Mark_shift
 ;	Элементы с индексом s_size и выше находятся за пределами стека. Для них
 ;	ссылка расположена в куче и находится по смещению от копируемого блока.
-;	Отрицательный индекс обрабатываем отдельно.
-	js	.negative_idx
+;	Отрицательный индекс всегда адресует кучу.
+	mov	s_base, rsi
+	js	.check_link
 	zero	rdx
 	cmp	rcx, s_size
 	cmovnc	rdx, s_size
-	mov	s_base, rsp
-	cmovnc	s_base, rsi
+	cmovc	s_base, rsp
 	sub	rcx, rdx
-;	Ссылка либо равна хранящейся в источнике, либо вместо неё находится
-;	маркер с индексом следующей ссылки на данный блок.
+.check_link:
+;	Ссылка либо равна хранящейся в источнике,
+;	либо содержит индекс следующей ссылки на данный блок.
 	mov	rdx, [s_base + rcx * sizeof value]
 	cmp	rdx, rsi
 	mov	[s_base + rcx * sizeof value], alloc_small_ptr
@@ -621,7 +624,12 @@ restore s_index
 	cmp	rcx, [heap_descriptor.uncommited]
 	cmovnc	rcx, [heap_descriptor.uncommited]
 	sub	rcx, rsi
+	jz	.compact
 	shr	rcx, 3	; / sizeof value
+;	Если блок может содержать ссылки на другие блоки, следует проверить
+;	не адресуют ли они блоки с отрицательными индексами.
+	cmp	byte[alloc_small_ptr - sizeof value], No_scan_tag
+	jb	.scan_block
 rep	movs	qword[alloc_small_ptr], [rsi]
 	jmp	.compact
 .next_link:
@@ -631,6 +639,79 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 	mov	rcx, Val_header[alloc_small_ptr - sizeof value]
 	mov	byte[alloc_small_ptr - sizeof value], Closure_tag
 	jmp	.closure_tail
+.scan_block:
+	mov	rax, [rsi]
+	mov	[alloc_small_ptr], rax
+	test	eax, 1
+	jz	.scan_ptr
+.scan_next:
+	add	rsi, sizeof value
+	add	alloc_small_ptr, sizeof value
+	dec	rcx
+	jnz	.scan_block
+	jmp	.compact
+.scan_ptr:
+;	Искомая ссылка адресует блок с адресом большим, чем источник.
+;	В таком блоке индекс, адресующий данную ссылку, отрицателен.
+;	При смещении текущего блока в сторону младших адресов, расстояние
+;	между блоками увеличивается, соответственно следует увеличить
+;	индекс в заголовке адресуемого блока (в абсолютном значении).
+;	В старших разрядах данной ссылки может содержаться индекс, адресующий
+;	следующую в односвязном списке ссылку; маскируем его.
+	mov	rdx, not .mark_mask
+	and	rax, rdx
+	cmp	rax, rsi
+	jbe	.scan_next
+	cmp	rax, gc_end
+	jnb	.scan_next
+;	По индексу в заголовке блока вычисляем адрес ссылки.
+	mov	rdx, Val_header[rax - sizeof value]
+	sar	rdx, ..Mark_shift
+	mov	s_base, rax
+	js	.hdr_idx2addr
+	sub	rdx, s_size
+	jnc	.hdr_idx2addr
+	add	rdx, s_size
+	mov	s_base, rsp
+.hdr_idx2addr:
+;	Если по индексу в заголовке адресуется текущая ссылка, корректируем индекс.
+;	Иначе перебираем элементы списка до содержащего индекс текущей ссылки.
+	lea	rdx, [s_base + rdx * sizeof value]
+	cmp	rdx, rsi
+	jnz	.scan_idxlist
+;	Индекс в заголовке уменьшаем на разницу между исходным и текущим
+;	адресами ссылки, адресующей блок за заголовком.
+	sub	rdx, rdi
+	shl	rdx, ..Mark_shift - sizeof_value_log2
+	sub	Val_header[rax - sizeof value], rdx
+	jmp	.scan_next
+.scan_idxlist:
+	mov	[rsp - 8], rcx
+.scan_next_link:
+;	В адресуемой rdx ячейке находится текущий элемент списка с индексом следующей ссылки.
+	mov	rcx, [rdx]
+	sar	rcx, ..Mark_shift
+	mov	s_base, rax
+	js	.idx2addr
+	sub	rcx, s_size
+	jnc	.idx2addr
+	add	rcx, s_size
+	mov	s_base, rsp
+.idx2addr:
+	lea	rcx, [s_base + rcx * sizeof value]
+	cmp	rcx, rsi
+	jz	.fix_idx
+	mov	rdx, rcx
+	jmp	.scan_next_link
+.fix_idx:
+;	Индекс уменьшаем на разницу между исходным и текущим
+;	адресами ссылки, адресующей блок за заголовком.
+	sub	rcx, rdi
+	shl	rcx, ..Mark_shift - sizeof_value_log2
+	sub	[rdx], rcx
+	mov	rcx, [rsp - 8]
+	jmp	.scan_next
+
 .negative_idx:
 ;	В случае отрицательного индекса объект, где следует скорректировать
 ;	ссылку, на данном этапе смещён в сторону младших адресов по неизвестному
@@ -643,6 +724,7 @@ rep	movs	qword[alloc_small_ptr], [rsi]
 ;	Определение типа выполним позже, после замены содержимого ячейки
 ;	скорректированной ссылкой.
 	lea	rdx, [rdi + rcx * sizeof value]
+;	lea	rdx, [rsi + rcx * sizeof value]
 ;	При большом количестве отбрасываемых объектов между источником и
 ;	приёмником вычисленный адрес, возможно, выходит за нижнюю границу кучи.
 	cmp	rdx, [heap_descriptor.gc_start]
