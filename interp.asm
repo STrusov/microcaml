@@ -1239,6 +1239,7 @@ end Instruct
 Instruct	XORINT
 	pop	rcx
 	xor	accu, rcx
+	or	accu, Val_int_0
 	Instruct_next
 end Instruct
 
