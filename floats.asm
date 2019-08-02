@@ -19,16 +19,18 @@ C_primitive_stub
 ;	в pervasives.ml string_of_float вызывает format_float с "%.12g"
 	zero	r8	; сохраняется в format_nativeint_dec
 	cmp	dword[rdi], '%.12'
+	mov	ecx, 12
 	jz	.f
 	dec	r8
 ;	однако, функция вызывается и со следующей строкой формата:
+	mov	ecx, 6
 	cmp	dword[rdi], '%.6f'
 	jnz	.fmt
 .f:	mov	rdx, [rsi]
 ;	Поскольку sprintf различает 0.0 и -0.0, inf и -inf,
 ;	определим знак числа и выведем символ '-' для отрицательных.
 	mov	rax, Negative_double
-	test	[rsi], rax
+	test	rdx, rax
 	jz	.positive
 	mov	byte[alloc_small_ptr_backup], '-'
 	inc	alloc_small_ptr_backup
@@ -42,75 +44,79 @@ C_primitive_stub
 	cmp	rdx, rax
 	jz	.nan
 	movq	xmm0, rdx
-;	Выделяем целую часть, округляя к 0, и форматируем её в строку.
-	cvttsd2si rsi, xmm0
-	call	format_nativeint_dec
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
-;	Выделяем дробную часть абсолютного значения числа.
-	cvttsd2si rdx, xmm0
-	cvtsi2sd xmm1, rdx
-	subsd	xmm0, xmm1	; дробная часть
+;	В формате %.g указывается общее количество значащих цифр. Что бы узнать
+;	сколько их после запятой, подсчитываем количество в целой части.
+;	Для %.f указанное значение известно сразу.
 	test	r8, r8
-	jns	.g12
-;	Выделяем 6 знаков для случая '%.6f'
-	mov	eax, 1000000
-	cvtsi2sd xmm1, eax
+	js	.round
+	mov	eax, 10
+;	Округляем к 0, что бы не посчитать 0ю целую часть как значащую.
+	cvttsd2si rsi, xmm0
+	test	rsi, rsi
+	jz	.round
+.cint:	dec	ecx
+;	js	.format_e
+	cmp	rsi, rax
+	jc	.round
+	lea	rax, [rax * 5]
+	add	rax, rax
+	jmp	.cint
+.round:	mov	r9, rcx	; не используется в format_nativeint_dec
+;	Перенесём требуемое после запятой количество знаков в целую часть,
+;	умножив на 10 в степени n. Результат округляем.
+	mov	eax, 1
+;	Возведение в степень n выполняем сдвигом + сложением (lea) n раз,
+;	а не двоичным разложением n, поскольку для малых n количество итераций
+;	различается незначительно (5 при n=6), но нет умножения и ветвления.
+	test	ecx, ecx
+	jz	.p10
+.pow:	lea	rax, [rax * 5]
+	add	rax, rax
+;	jc	.overflow
+	dec	ecx
+	jnz	.pow
+.p10:	cvtsi2sd xmm1, rax
 	mulsd	xmm0, xmm1
-;	Преобразуем без усечения, иначе 0.1 -> 0.09999.
-;	.1234567 выводится как .123457, что соответствует sprintf (и OCaml).
-	cvtsd2si esi, xmm0
-;	format_nativeint_dec не выводит незначащие нули,
-;	создаём фиктивный значащий старший разряд, что бы вывести остальные.
-	add	esi, eax
-;	Выводим число, содержащее требуемую дробную часть.
+	cvtsd2si rsi, xmm0
+;	Если целая часть равна 0, временно заменяем её на 1,
+;	что бы вывести незначащие разряды.
+	cmp	rsi, rax
+	lea	rax, [rax + rsi]
+	cmovc	rsi, rax
+;	Форматируем целое представление числа в строку.
 	call	format_nativeint_dec
+;	Если целая часть равна 0, располагаем соответствующий символ вместо '1'.
+	subsd	xmm0, xmm1
+	cvtsd2si rsi, xmm0
+	test	rsi, rsi
+	jns	.int00
+	mov	byte[alloc_small_ptr_backup], '0'
+.int00:
+;	Сдвинем дробную часть числа и отделим от целой разделителем.
+	lea	rsi, [alloc_small_ptr_backup + rax]
+	test	r9, r9
+	jz	.dot
+.mf:	mov	dl, [rsi-1]
+;	Для %.g незначащие нули справа следует откинуть.
+	test	r8, r8
+	js	.cf
+	dec	r8
+	cmp	dl, '0'
+	jnz	.cf
+	dec	rax
+	zero	r8
+.cf:	mov	[rsi], dl
+	dec	rsi
+	dec	r9
+	jnz	.mf
 ;	Располагаем десятичную точку (OCaml не использует локализацию?)
-;	поверх единицы в старшем разряде, полученной прибавлением 1000000 ранее.
-	mov	byte[alloc_small_ptr_backup], '.'
+.dot:	mov	byte[rsi], '.'
+	inc	rax
 .exit:	lea	rdi, [rax + alloc_small_ptr_backup]
 	pop	alloc_small_ptr_backup
 	sub	rdi, alloc_small_ptr_backup
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
 	jmp	caml_alloc_string
-;	Дробная часть формата "%.12g". Выводятся только значащие цифры.
-.g12:	mov	byte[alloc_small_ptr_backup], '.'
-	inc	alloc_small_ptr_backup
-;	В eax количество уже выведенных цифр.
-;	В rdx целая часть. Если она 0, значит была выведена незначащая цифра.
-;	Вычислим в ecx, сколько осталось вывести из 12-ти значащих цифр.
-	test	rdx, rdx
-	mov	edx, 13
-	mov	ecx, 12
-	cmovz	ecx, edx
-	sub	ecx, eax
-	jbe	.exit
-;	Корректируем значение остатка, что бы избежать округления значений,
-;	имеющих неточное представление: 0.12345678912 -> 0.123456789119
-;!!!	Константы (данная и следующая) получены эмпирически и требуют уточнения.
-	mov	rax, 3e-17
-	movq	xmm2, rax
-	addsd	xmm0, xmm2
-;	Нулём считаем значения меньшие или равные данному:
-	mov	rax, 1e-5
-	movq	xmm3, rax
-	mov	eax, 10
-	cvtsi2sd xmm2, eax
-.g12_digit:
-;	Если остаток отличен от 0 на величину дельты (xmm3),
-;	выводим старшую цифру остатка, умножая на 10.
-	zero	eax
-	ucomisd	xmm0, xmm3
-	jbe	.exit
-	mulsd	xmm0, xmm2
-	cvttsd2si eax, xmm0
-	cvtsi2sd xmm1, eax
-	subsd	xmm0, xmm1	; дробная часть
-	add	eax, '0'
-	mov	[alloc_small_ptr_backup], al
-	inc	alloc_small_ptr_backup
-	loop	.g12_digit
-	zero	eax
-	jmp	.exit
 .infinity:
 	mov	dword[alloc_small_ptr_backup], 'inf'
 	mov	eax, 3
