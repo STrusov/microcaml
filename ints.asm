@@ -796,9 +796,19 @@ format_nativeint_dec:
 	neg	rsi
 	mov	byte[alloc_small_ptr_backup + rcx], '-'
 	inc	ecx
-.pos:	mov	edi, ecx	; позиция первого символа числа нужна в .rev:
+.pos:	mov	eax, 10
+;	Определяем количество цифр, вычисляя десятичный логарифм простым циклом.
+;	(вариант корректировки log2(n)*19/64 по таблице иногда быстрее, но объёмнее).
+.log10:	inc	ecx
+	cmp	rsi, rax
+	jb	.len
+	lea	rax, [rax * 5]
+	add	rax, rax
+	jmp	.log10
+.len:	push	rcx
 ;	Делим на 10, умножая на магическое число.
-.@:	mov	rax, rsi
+.@:	dec	ecx
+	mov	rax, rsi
 	mov	rdx, 0xCCCCCCCCCCCCCCCD
 	mul	rdx
 	shr	rdx, 3		; частное
@@ -810,21 +820,8 @@ format_nativeint_dec:
 ;	Сохраняем остаток в виде символа.
 	add	al ,'0'
 	mov	[alloc_small_ptr_backup + rcx], al
-	inc	ecx
 	test	rsi, rsi
 	jnz	.@
-;	mov	byte[alloc_small_ptr_backup + rcx], 0
-	push	rcx
-;	Цифры числа расположены в обратном порядке, переставляем.
-.rev:	dec	ecx
-	cmp	edi, ecx
-	jnc	.order
-	mov	al, [alloc_small_ptr_backup + rdi]
-	mov	dl, [alloc_small_ptr_backup + rcx]
-	mov	[alloc_small_ptr_backup + rcx], al
-	mov	[alloc_small_ptr_backup + rdi], dl
-	inc	edi
-	jmp	.rev
 .order:	pop	rax	; размер строки
 	ret
 end proc
