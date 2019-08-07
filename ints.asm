@@ -788,26 +788,41 @@ end C_primitive
 ; R8 и R9 не используются.
 proc	format_int_dec
 	Int_val rsi
+
 ; RSI - знаковое целое.
 format_nativeint_dec:
+	zero	edi
+	zero	edx
 	zero	ecx
 	test	rsi, rsi
 	jns	.pos
 	neg	rsi
-	mov	byte[alloc_small_ptr_backup + rcx], '-'
+;	mov	byte[alloc_small_ptr_backup + rcx], '-'
+	mov	byte[alloc_small_ptr_backup], '-'
 	inc	ecx
-.pos:	mov	eax, 10
 ;	Определяем количество цифр, вычисляя десятичный логарифм простым циклом.
 ;	(вариант корректировки log2(n)*19/64 по таблице иногда быстрее, но объёмнее).
-.log10:	inc	ecx
+.pos:	mov	eax, 10
+.log10:	inc	edx
 	cmp	rsi, rax
-	jb	.len
+	jb	format_nativeint_dec_n.ecx
 	lea	rax, [rax * 5]
 	add	rax, rax
 	jmp	.log10
-.len:	push	rcx
+
+; EDI - количество младших цифр, после которого следует вывести разделитель.
+;	Разделитель находится в разрядах 32..39 RDI
+; EDX - количество цифр (младших разрядов), подлежащих выводу.
+format_nativeint_dec_n:
+	zero	ecx
+;	Счётчик цифр (r11) отделён от позиции (rcx) для учёта возможного знака.
+.ecx:	add	ecx, edx
+	mov	r11, rdx
+	push	rcx
 ;	Делим на 10, умножая на магическое число.
-.@:	dec	ecx
+.@:	dec	rdi
+	test	edi, edi
+	jz	.delimiter
 	mov	rax, rsi
 	mov	rdx, 0xCCCCCCCCCCCCCCCD
 	mul	rdx
@@ -819,11 +834,17 @@ format_nativeint_dec:
 	sub	rax, rdx	; остаток
 ;	Сохраняем остаток в виде символа.
 	add	al ,'0'
+.@1:	dec	ecx
+	dec	r11
 	mov	[alloc_small_ptr_backup + rcx], al
-	test	rsi, rsi
 	jnz	.@
-.order:	pop	rax	; размер строки
+	pop	rax	; размер строки
 	ret
+.delimiter:
+	shr	rdi, 32
+	mov	al, dil
+	zero	edi
+	jmp	.@1
 end proc
 
 
