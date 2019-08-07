@@ -44,24 +44,39 @@ C_primitive_stub
 	cmp	rdx, rax
 	jz	.nan
 	movq	xmm0, rdx
-;	В формате %.g указывается общее количество значащих цифр. Что бы узнать
-;	сколько их после запятой, подсчитываем количество в целой части.
-;	Для %.f указанное значение известно сразу.
-	test	r8, r8
-	js	.round
+;	Подсчитываем количество цифр в целой части.
+	zero	edx
 	mov	eax, 10
-;	Округляем к 0, что бы не посчитать 0ю целую часть как значащую.
+;	%.g: если целая часть равна 0, она выводится помимо значащих разрядов
+;	дробной части; округляем к 0, что бы увеличить точность в таком случае.
 	cvttsd2si rsi, xmm0
-	test	rsi, rsi
-	jz	.round
-.cint:	dec	ecx
+	mov	rdi, rsi
+	or	rdi, r8
+	lea	edi, [ecx + 1]
+	cmovz	ecx, edi
+.cint:	inc	edx
 ;	js	.format_e
 	cmp	rsi, rax
-	jc	.round
+	jc	.calc_fmt
 	lea	rax, [rax * 5]
 	add	rax, rax
 	jmp	.cint
-.round:	mov	r9, rcx	; не используется в format_nativeint_dec
+;	%.g вычисляем количество цифр после запятой (известно общее).
+;	%.f вычисляем общее количество цифр (известно количество в дробной части).
+.calc_fmt:
+	test	r8, r8
+	jnz	.total
+	zero	eax
+	sub	ecx, edx
+	cmovc	ecx, eax
+.total:	add	edx, ecx
+;	Десятичный разделитель (OCaml не использует локализацию?)
+	mov	edi, '.'
+	shl	rdi, 32
+;	увеличивает количество  символов на 1.
+	inc	edx
+;	Указываем его позицию от младшего разряда (дробной части) числа.
+	lea	rdi, [rdi + rcx + 1]
 ;	Перенесём требуемое после запятой количество знаков в целую часть,
 ;	умножив на 10 в степени n. Результат округляем.
 	mov	eax, 1
@@ -78,40 +93,15 @@ C_primitive_stub
 .p10:	cvtsi2sd xmm1, rax
 	mulsd	xmm0, xmm1
 	cvtsd2si rsi, xmm0
-;	Если целая часть равна 0, временно заменяем её на 1,
-;	что бы вывести незначащие разряды.
-	cmp	rsi, rax
-	lea	rax, [rax + rsi]
-	cmovc	rsi, rax
 ;	Форматируем целое представление числа в строку.
-	call	format_nativeint_dec
-;	Если целая часть равна 0, располагаем соответствующий символ вместо '1'.
-	subsd	xmm0, xmm1
-	cvtsd2si rsi, xmm0
-	test	rsi, rsi
-	jns	.int00
-	mov	byte[alloc_small_ptr_backup], '0'
-.int00:
-;	Сдвинем дробную часть числа и отделим от целой разделителем.
-	lea	rsi, [alloc_small_ptr_backup + rax]
-	test	r9, r9
-	jz	.dot
-.mf:	mov	dl, [rsi-1]
+	call	format_nativeint_dec_n
 ;	Для %.g незначащие нули справа следует откинуть.
 	test	r8, r8
-	js	.cf
-	dec	r8
-	cmp	dl, '0'
-	jnz	.cf
-	dec	rax
-	zero	r8
-.cf:	mov	[rsi], dl
-	dec	rsi
-	dec	r9
-	jnz	.mf
-;	Располагаем десятичную точку (OCaml не использует локализацию?)
-.dot:	mov	byte[rsi], '.'
-	inc	rax
+	js	.exit
+.fnz:	cmp	byte[alloc_small_ptr_backup + rax - 1], '0'
+	jnz	.exit
+	dec	eax
+	jmp	.fnz
 .exit:	lea	rdi, [rax + alloc_small_ptr_backup]
 	pop	alloc_small_ptr_backup
 	sub	rdi, alloc_small_ptr_backup
