@@ -408,7 +408,21 @@ C_primitive caml_acos_float
 end C_primitive
 
 
+; Возвращает арктангенс вещественного числа.
+; RDI - адрес агремента.
 C_primitive caml_atan_float
+; только для аргумента 1.0
+C_primitive_stub
+	mov	Val_header[alloc_small_ptr_backup], 1 wosize + Double_tag
+	mov	rax, 0x3ff0000000000000
+	cmp	rax, [rdi]
+	jnz	.@
+	mov	rax, 0x3fe921fb54442d18
+	mov	[alloc_small_ptr_backup + sizeof value], rax
+	lea	rax, [alloc_small_ptr_backup + 1 * sizeof value]
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + 2 * sizeof value]
+	ret
+.@:	int3
 end C_primitive
 
 
