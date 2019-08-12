@@ -515,5 +515,31 @@ end C_primitive
 end if
 
 
+FP_normal	:= 0
+FP_subnormal	:= 1
+FP_zero		:= 2
+FP_infinite	:= 3
+FP_nan		:= 4
+; Возвращает тип вещественного числа.
+; RDI - адрес числа.
 C_primitive caml_classify_float
+	mov	eax, Val_int FP_normal
+	mov	rdx, [rdi]
+;	Убираем знак.
+	mov	ecx, Val_int FP_zero
+	add	rdx, rdx
+	cmovz	eax, ecx
+;	Проверяем экспоненту.
+	shr	rdx, 52 + 1
+	mov	ecx, Val_int FP_subnormal
+	cmovz	eax, ecx
+	cmp	edx, 7ffh
+	jz	.nans
+	ret
+.nans:	mov	rdx, [rdi]
+	shl	rdx, 11 + 1
+	mov	eax, Val_int FP_nan
+	mov	ecx, Val_int FP_infinite
+	cmovz	eax, ecx
+	ret
 end C_primitive
