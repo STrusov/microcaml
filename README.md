@@ -53,9 +53,12 @@
 * array-functions
 * basic
 * basic-float
+* basic-more
 * extension-constructor
 * lazy
 * letrec
+* lib-format
+* lib-printf
 * lib-queue
 * lib-stack
 * lib-string

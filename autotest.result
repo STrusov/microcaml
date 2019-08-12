@@ -21,6 +21,23 @@ tailcalls.ml 	+
 [1m Каталог basic-float:[22m
 tfloat_hex.ml 	+
 tfloat_record.ml 	+
+[1m Каталог basic-more:[22m
+bounds.ml 	+
+div_by_zero.ml 	+
+function_in_ref.ml 	+
+if_in_if.ml 	+
+morematch.ml 	+
+opaque_prim.ml 	+
+pr2719.ml 	+
+pr6216.ml 	+
+record_evaluation_order.ml 	+
+sequential_and_or.ml 	+
+structural_constants.ml 	+
+tbuffer.ml 	+
+testrandom.ml 	+
+tformat.ml 	+
+top_level_patterns.ml 	+
+tprintf.ml 	+
 [1m Каталог extension-constructor:[22m
 test.ml 	+
 [1m Каталог lazy:[22m
@@ -39,6 +56,13 @@ mixing_value_closures_1.ml 	+
 mixing_value_closures_2.ml 	+
 mutual_functions.ml 	+
 record_with.ml 	+
+[1m Каталог lib-format:[22m
+pr6824.ml 	+
+tformat.ml 	+
+[1m Каталог lib-printf:[22m
+pr6534.ml 	+
+pr6938.ml 	+
+tprintf.ml 	+
 [1m Каталог lib-queue:[22m
 test.ml 	+
 [1m Каталог lib-stack:[22m
