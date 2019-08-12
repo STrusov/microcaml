@@ -167,7 +167,7 @@ end C_primitive
 C_primitive caml_format_int
 	Int_val rsi
 	mov	rdx, 1 shl 63 - 1
-	jmp	caml_nativeint_format.nint
+	jmp	caml_alloc_sprintf1
 end C_primitive
 
 
@@ -429,7 +429,8 @@ end C_primitive
 C_primitive caml_int32_format
 ;	Для вывода шестнадцатеричных цифр следует удалить незначащие разряды.
 	or	edx, -1
-	jmp	caml_nativeint_format.mask
+	mov	rsi, [int32_val + rsi]
+	jmp	caml_alloc_sprintf1
 end C_primitive
 
 
@@ -782,42 +783,53 @@ end C_primitive
 
 
 ; Преобразует число в текстовую форму, располагая строку в текущие адреса кучи.
-; Возвращает в RAX длину строки-результата.
+; Может приводить к инкременту указателя кучи.
+; Возвращает в RAX длину строки-результата, выходящую за пределы указателя кучи.
 ; RSI - знаковое целое (в OCaml-представлении).
 ; RDI, RSI, RDX, RCX - не определены;
-; R8 и R9 не используются.
+; R8, R9, R10 и R11 не используются.
 proc	format_int_dec
 	Int_val rsi
 
 ; RSI - знаковое целое.
-format_nativeint_dec:
-	zero	edi
-	zero	edx
-	zero	ecx
+format_nativeint_signed:
 	test	rsi, rsi
-	jns	.pos
+	jns	format_nativeint
 	neg	rsi
-;	mov	byte[alloc_small_ptr_backup + rcx], '-'
 	mov	byte[alloc_small_ptr_backup], '-'
-	inc	ecx
+	inc	alloc_small_ptr_backup
+
+; Преобразует число в текстовую форму, располагая строку в текущие адреса кучи.
+; Возвращает в RAX длину строки-результата.
+; RSI - беззнаковое целое
+; RDI, RDX, RCX - не определены;
+; R8 и R9 не используются по требованию caml_alloc_sprintf1.
+; R10 и R11 не используются по требованию format_floating_point_number.
+format_nativeint:
+	zero	edx
+
+; RDX - минимальное количество выводимых разрядов.
+format_nativeint_pos:
+	zero	ecx
+	zero	edi
 ;	Определяем количество цифр, вычисляя десятичный логарифм простым циклом.
 ;	(вариант корректировки log2(n)*19/64 по таблице иногда быстрее, но объёмнее).
-.pos:	mov	eax, 10
-.log10:	inc	edx
+	mov	eax, 10
+.log10:	inc	ecx
 	cmp	rsi, rax
-	jb	format_nativeint_dec_n.ecx
+	jb	.@
 	lea	rax, [rax * 5]
 	add	rax, rax
-	jmp	.log10
+	jnc	.log10
+	inc	ecx
+.@:	cmp	edx, ecx
+	cmovc	edx, ecx
 
 ; EDI - количество младших цифр, после которого следует вывести разделитель.
 ;	Разделитель находится в разрядах 32..39 RDI
 ; EDX - количество цифр (младших разрядов), подлежащих выводу.
-format_nativeint_dec_n:
-	zero	ecx
-;	Счётчик цифр (r11) отделён от позиции (rcx) для учёта возможного знака.
-.ecx:	add	ecx, edx
-	mov	r11, rdx
+format_nativeint_n:
+	mov	ecx, edx
 	push	rcx
 ;	Делим на 10, умножая на магическое число.
 .@:	dec	rdi
@@ -835,7 +847,6 @@ format_nativeint_dec_n:
 ;	Сохраняем остаток в виде символа.
 	add	al ,'0'
 .@1:	dec	ecx
-	dec	r11
 	mov	[alloc_small_ptr_backup + rcx], al
 	jnz	.@
 	pop	rax	; размер строки
@@ -852,6 +863,7 @@ end proc
 ; Возвращает в RAX длину строки-результата.
 ; RSI - беззнаковое целое.
 ; DL - символ соответствующий 10, т.е. 'A' или 'a'.
+; R8 и R9 не используются.
 proc	format_nativeint_hex
 	zero	rdi
 	sub	dl, '9' + 1
@@ -879,13 +891,13 @@ proc	format_nativeint_hex
 end proc
 
 
-; Преобразует число в восьмиричный текст, располагая строку в текущие адреса кучи.
+; Преобразует число в восьмеричный текст, располагая строку в текущие адреса кучи.
 ; Возвращает в RAX длину строки-результата.
 ; RSI - беззнаковое целое.
 proc	format_nativeint_oct
 	zero	rdi
 	mov	ecx, sizeof value * 8 / 3
-;	1 + 21 * 3 бит. Обрабатываем старший разряд восьмиричного числа отдельно.
+;	1 + 21 * 3 бит. Обрабатываем старший разряд восьмеричного числа отдельно.
 	shl	rsi, 1
 	jc	.high1
 .skip_leading_zeroes:
@@ -914,104 +926,10 @@ end proc
 ; Преобразует число в OCaml-строку (с заголовком) согласно формата.
 ; RDI - формат; см. format_of_iconv в stdlib/camlinternalFormat.ml
 ; RSI - адрес блока с целым.
-; RDX (для точки входа .mask) содержит маску с разрядами, подлежащими выводу
-; в случае форматов %X и %x (служит для корректного вывода int32).
-;
-; Эталонная реализация в случае пустой строки формата генерирует SIGSEGV.
-; Если после формата присутствуют символы, они затирают часть числа; кроме того,
-; выводится суффикс (l). В данной реализации поведение отличается: число
-; выводится всегда целиком и без суффикса, что выглядит естественным.
 C_primitive caml_nativeint_format
 	or	rdx, -1
-.mask:	mov	rsi, [nativeint_val + rsi]
-; RSI - целое.
-.nint:
-;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
-	mov	qword[alloc_small_ptr_backup], String_tag
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
-	push	alloc_small_ptr_backup
-	caml_string_length rdi, rcx, rax
-;	Копируем префикс формата, пока не встретится %
-.cp_fmt:
-;	При отсутствии формата (символа '%') число не выводится.
-;	jecxz	.exit0
-	test	ecx, ecx
-	jz	.exit0
-	mov	al, [rdi]
-	inc	rdi
-	dec	ecx
-	cmp	al, '%'
-	jz	.fmt
-.cpf:	mov	[alloc_small_ptr_backup], al
-	inc	alloc_small_ptr_backup
-	jmp	.cp_fmt
-.fmt:	lea	r8, [rdi + 2]
-	lea	r9d, [ecx - 1]
-	cmp	byte[rdi], 'd'
-	jz	.dec
-	cmp	byte[rdi], 'i'
-	jz	.dec
-	cmp	byte[rdi], 'u'
-	jz	.dec
-	cmp	byte[rdi], 'X'
-	jz	.HEX
-	cmp	byte[rdi], 'x'
-	jz	.hex
-	cmp	byte[rdi], 'o'
-	jz	.oct
-	inc	r8
-	dec	r9d
-	mov	ax, [rdi]
-	cmp	ax, 'nd'
-	jz	.dec
-	cmp	ax, 'ni'
-	jz	.dec
-	cmp	ax, 'nu'
-	jz	.dec
-	cmp	ax, 'nx'
-	jz	.hex
-	cmp	ax, 'nX'
-	jz	.HEX
-	cmp	ax, 'no'
-	jz	.oct
-	or	al, 'l' xor 'L'
-	cmp	ax, 'ld'
-	jz	.dec
-	cmp	ax, 'li'
-	jz	.dec
-	cmp	ax, 'lu'
-	jz	.dec
-	cmp	ax, 'lx'
-	jz	.hex
-	cmp	ax, 'lX'
-	jz	.HEX
-	cmp	ax, 'lo'
-	jz	.oct
-	mov	al, '%'
-	jmp	.cpf
-.exit0:	mov	rdi, alloc_small_ptr_backup
-	jmp	.exit
-.dec:	call	format_nativeint_dec
-	jmp	.cp_fmt_tail
-.oct:	and	rsi, rdx
-	call	format_nativeint_oct
-	jmp	.cp_fmt_tail
-.HEX:	and	rsi, rdx
-	mov	dl, 'A'
-	jmp	.hex_f
-.hex:	and	rsi, rdx
-	mov	dl, 'a'
-.hex_f:	call	format_nativeint_hex
-;	Копируем остаток строки формата, при наличии.
-.cp_fmt_tail:
-	lea	rdi, [rax + alloc_small_ptr_backup]
-	mov	ecx, r9d
-	mov	rsi, r8
-rep	movs	byte[rdi], [rsi]
-.exit:	pop	alloc_small_ptr_backup
-	sub	rdi, alloc_small_ptr_backup
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
-	jmp	caml_alloc_string
+	mov	rsi, [nativeint_val + rsi]
+	jmp	caml_alloc_sprintf1
 end C_primitive
 
 

@@ -6,74 +6,99 @@ Negative_double	:= 0x8000000000000000	; знак в 63-м бите, соглас
 Infinity	:= 0x7ff0000000000000
 ;NaN		:= 0x7fffffffffffffff
 NaN		:= 0x7ff0000000000001
+Mantissa_bits	:= 52
 
 ; Преобразует вещественное число в OCaml-строку (с заголовком) согласно формата.
 ; RDI - формат вывода;
 ; RSI - вещественное число (в OCaml-представлении).
 C_primitive caml_format_float
 C_primitive_stub
-;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
-	mov	qword[alloc_small_ptr_backup], String_tag
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
-	push	alloc_small_ptr_backup
-;	в pervasives.ml string_of_float вызывает format_float с "%.12g"
-	zero	r8	; сохраняется в format_nativeint_dec
-	cmp	dword[rdi], '%.12'
-	mov	ecx, 12
-	jz	.f
-	dec	r8
-;	однако, функция вызывается и со следующей строкой формата:
-	mov	ecx, 6
-	cmp	dword[rdi], '%.6f'
-	jnz	.fmt
-.f:	mov	rdx, [rsi]
+	mov	rsi, [rsi]
+	jmp	caml_alloc_sprintf1
+end C_primitive
+
+
+; Преобразует вещественное число в строку, располагая в текущие адреса кучи.
+; Может приводить к инкременту указателя кучи.
+; Возвращает в RAX длину строки-результата, выходящую за пределы указателя кучи.
+; DIL - формат (символ a e f g).
+; DIH - верхний/нижний регистр. 0 для e f g и ('a' xor 'A') для E F G.
+; RSI - двоичное представление вещественного числа.
+; EDX - точность (количество значащих разрядов); отрицательна, если не задана.
+;	52+1 бита мантиссы позволяют хранить 15 десятичных разрядов.
+; Отрицательная точность не встречалась и не обрабатывается.
+; R8 и R9 не используются по требованию caml_alloc_sprintf1.
+format_floating_point_number:
+exp	equ r11
+fmt	equ r10
+fmtl	equ r10l
+	mov	ecx, edx
+	mov	fmt, rdi	; сохраняется в format_nativeint
 ;	Поскольку sprintf различает 0.0 и -0.0, inf и -inf,
 ;	определим знак числа и выведем символ '-' для отрицательных.
-	mov	rax, Negative_double
-	test	rdx, rax
-	jz	.positive
+	test	rsi, rsi
+	jns	.positive
 	mov	byte[alloc_small_ptr_backup], '-'
 	inc	alloc_small_ptr_backup
-	not	rax
-	and	rdx, rax	; абсолютное значение числа
+	mov	rax, not Negative_double
+	and	rsi, rax	; абсолютное значение числа
 .positive:
-	mov	rax, Infinity
-	cmp	rdx, rax
-	jz	.infinity
 	mov	rax, NaN
-	cmp	rdx, rax
+	cmp	rsi, rax
 	jz	.nan
-	movq	xmm0, rdx
+	mov	rax, Infinity
+	cmp	rsi, rax
+	jz	.infinity
+	cmp	fmtl, 'a'
+	je	.a_format
+	movq	xmm0, rsi
+	cmp	fmtl, 'e'
+	je	.e_format
+;	%g - если 0.0001 > значение > 0, выводим в формате e.
+	cmp	fmtl, 'g'
+	jne	.f_format
+	mov	rax, 0.0
+	cmp	rsi, rax
+	je	.f_format
+	mov	rax, 0.0001
+	cmp	rsi, rax
+	jb	.e_format_g
 ;	Подсчитываем количество цифр в целой части.
+.f_format:
 	zero	edx
 	mov	eax, 10
-;	%.g: если целая часть равна 0, она выводится помимо значащих разрядов
+;	%g - если целая часть равна 0, она выводится помимо значащих разрядов
 ;	дробной части; округляем к 0, что бы увеличить точность в таком случае.
 	cvttsd2si rsi, xmm0
-	mov	rdi, rsi
-	or	rdi, r8
+	or	edi, -1
+	cmp	fmtl, 'g'
+	cmovz	rdi, rsi
+	test	rdi, rdi
 	lea	edi, [ecx + 1]
 	cmovz	ecx, edi
 .cint:	inc	edx
-;	js	.format_e
 	cmp	rsi, rax
 	jc	.calc_fmt
 	lea	rax, [rax * 5]
 	add	rax, rax
 	jmp	.cint
-;	%.g вычисляем количество цифр после запятой (известно общее).
-;	%.f вычисляем общее количество цифр (известно количество в дробной части).
+;	%g - вычисляем количество цифр после разделителя (известно общее).
+;	%f - вычисляем общее количество цифр (известно количество в дробной части).
 .calc_fmt:
-	test	r8, r8
+	cmp	fmtl, 'g'
 	jnz	.total
-	zero	eax
+;	%g - если для вывода значения требуется в целой части знаков больше,
+;	     чем точность, выводим в формате e.
+	cmp	ecx, edx
+	jc	.e_format_g
 	sub	ecx, edx
-	cmovc	ecx, eax
 .total:	add	edx, ecx
 ;	Десятичный разделитель (OCaml не использует локализацию?)
-	mov	edi, '.'
+	mov	edi, DECIMAL_SEPARATOR
 	shl	rdi, 32
-;	увеличивает количество  символов на 1.
+	test	ecx, ecx
+	jz	.prec0
+;	Десятичный разделитель увеличивает количество  символов на 1.
 	inc	edx
 ;	Указываем его позицию от младшего разряда (дробной части) числа.
 	lea	rdi, [rdi + rcx + 1]
@@ -83,43 +108,179 @@ C_primitive_stub
 ;	Возведение в степень n выполняем сдвигом + сложением (lea) n раз,
 ;	а не двоичным разложением n, поскольку для малых n количество итераций
 ;	различается незначительно (5 при n=6), но нет умножения и ветвления.
-	test	ecx, ecx
-	jz	.p10
 .pow:	lea	rax, [rax * 5]
 	add	rax, rax
 ;	jc	.overflow
 	dec	ecx
 	jnz	.pow
-.p10:	cvtsi2sd xmm1, rax
+	cvtsi2sd xmm1, rax
 	mulsd	xmm0, xmm1
-	cvtsd2si rsi, xmm0
+.prec0:	cvtsd2si rsi, xmm0
 ;	Форматируем целое представление числа в строку.
-	call	format_nativeint_dec_n
-;	Для %.g незначащие нули справа следует откинуть.
-	test	r8, r8
-	js	.exit
+	call	format_nativeint_n
+;	%g - незначащие нули справа следует откинуть.
+	cmp	fmtl, 'g'
+	je	.fnz
+;	%e - следует вывести значение экспоненты.
+	cmp	fmtl, 'e'
+	je	.e_exp
+;	Для %g, выводимого как %e, исключаем незначащие нули перед экспонентой.
+	cmp	fmtl, 'G'
+	je	.g_exp
+.exit:	ret
 .fnz:	cmp	byte[alloc_small_ptr_backup + rax - 1], '0'
 	jnz	.exit
 	dec	eax
 	jmp	.fnz
-.exit:	lea	rdi, [rax + alloc_small_ptr_backup]
-	pop	alloc_small_ptr_backup
-	sub	rdi, alloc_small_ptr_backup
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup - sizeof value]
-	jmp	caml_alloc_string
 .infinity:
-	mov	dword[alloc_small_ptr_backup], 'inf'
-	mov	eax, 3
-	jmp	.exit
+if ORIGINAL_INFINITY_MESSAGE
+;	OCaml для формата a выводит infinity (см. caml_hexstring_of_float()).
+	cmp	fmtl, 'a'
+	jnz	.inf
+	mov	rax, 'infinity'
+	mov	[alloc_small_ptr_backup], rax
+	mov	eax, 8
+	ret
+end if
+.inf:	mov	dword[alloc_small_ptr_backup], 'inf'
+.exit3:	mov	eax, 3
+	ret
 .nan:	mov	dword[alloc_small_ptr_backup], 'nan'
-	mov	eax, 3
-	jmp	.exit
-.fmt:
-int3
-end C_primitive
+	jmp	.exit3
+.a_format:
+;	Выделяем экспоненту.
+	mov	exp, rsi
+	shr	exp, Mantissa_bits
+;	У нормализованных чисел в старшем разряде неявная 1.
+	jz	.a_denormal
+	mov	dword[alloc_small_ptr_backup], '0x1'
+	add	alloc_small_ptr_backup, 3
+	sub	exp, 1023
+.a_fract:
+;	Если точность не задана, выводим без округления.
+;	test	ecx, ecx
+;	Выводим дробную часть, при наличии.
+	mov	rax, 1 shl Mantissa_bits - 1
+	and	rsi, rax
+	jz	.a_exp
+;	Сдвигаем незначащие полубайты.
+	bsf	rcx, rsi
+	and	ecx, -8
+	shr	rsi, cl
+	mov	byte[alloc_small_ptr_backup], DECIMAL_SEPARATOR
+	inc	alloc_small_ptr_backup
+	mov	dl, fmtl	;'a'
+	call	format_nativeint_hex
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
+;	Выводим экспоненту.
+.a_exp:	mov	cx, 'p-'
+	mov	ax, 'p+'
+	zero	edx
+.exp:	mov	rsi, exp
+	neg	rsi
+	test	exp, exp
+	cmovs	eax, ecx
+	cmovns	rsi, exp
+	shr	fmt, 8
+	xor	al, fmtl
+	mov	[alloc_small_ptr_backup], ax
+	add	alloc_small_ptr_backup, 2
+	call	format_nativeint_pos
+	ret
+.a_denormal:
+	mov	dword[alloc_small_ptr_backup], '0x0'
+	add	alloc_small_ptr_backup, 3
+	lea	rax, [exp - 1022]
+	test	esi, esi
+	cmovnz	exp, rax
+	jmp	.a_fract
+.g_exp: cmp	byte[alloc_small_ptr_backup + rax - 1], '0'
+	lea	eax, [eax - 1]
+	jz	.g_exp
+	cmp	byte[alloc_small_ptr_backup + rax], DECIMAL_SEPARATOR
+	jz	.e_exp
+	inc	eax
+.e_exp:	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
+	mov	cx, 'e-'
+	mov	ax, 'e+'
+	mov	edx, 2	; минимум 2 цифры.
+	jmp	.exp
+.e_format_g:
+;	Точность принимается 1, в случае 0; и уменьшается на 1.
+	mov	eax, ecx
+	dec	ecx
+	cmovs	ecx, eax
+	mov	fmtl, 'G'	; особый вариант обработки экспоненты.
+;	%e - следует преобразовать число к виду d.ddd, вычислив экспоненту.
+.e_format:
+	zero	exp
+	mov	rax, 10.0
+	movq	xmm2, rax
+	cmp	rax, rsi
+	lea	rdx, [.exps10]
+	jbe	.e_big
+;	Числа с одним и менее целым разрядом - умножаем до нормализации
+;	представления (1 разряд в целой части). Алгоритм соответствует
+;	возведению в степень бинарным разложением показателя.
+;	(см. для примера uclibc-ng/libc/stdio/_fpmaxtostr.c)
+	mov	eax, 1 shl (.exps10_size - 1)
+.e_sl:	movsd	xmm1, [rdx]
+	mulsd	xmm1, xmm0
+	ucomisd	xmm1, xmm2
+	jae	.e_s0
+	movsd	xmm0, xmm1
+	sub	exp, rax
+.e_s0:	add	rdx, 8
+	shr	eax, 1
+	jnz	.e_sl
+;	%e - количество цифр после разделителя известно и равно точности,
+;	     общее на 1 больше.
+	mov	edx, 1
+	jmp	.total
+;	Числа с более чем одним целым разрядом -
+;	делим до нормализации представления.
+.e_big:	mov	rax, 1.0
+	movq	xmm2, rax
+	mov	eax, 1 shl (.exps10_size - 1)
+	add	rdx, 8 * .exps10_size
+.e_bl:	movsd	xmm1, [rdx]
+	mulsd	xmm1, xmm0
+	ucomisd	xmm1, xmm2
+	jb	.e_b0
+	movsd	xmm0, xmm1
+	add	exp, rax
+.e_b0:	add	rdx, 8
+	shr	eax, 1
+	jnz	.e_bl
+	mov	edx, 1
+	jmp	.total
+align 8
+.exps10		dq 1e256, 1e128, 1e64, 1e32, 1e16, 1e8, 1e4, 100.0, 10.0
+.exps10_size := ($-.exps10)/8
+; Замена деления умножением в данном случае может привести к потери точности,
+; поскольку множители не являются степенью 2.
+		dq 1e-256, 1e-128, 1e-64, 1e-32, 1e-16, 1e-8, 1e-4, 0.01, 0.1
+restore exp, fmt, fmtl
 
-
+; Преобразует вещественное число в строковое шестнадцатеричное представление,
+; (см. формат %a caml_alloc_sprintf1), располагая в текущие адреса кучи.
+; Возвращает в RAX длину строки-результата.
+; RDI - вещественное число (в OCaml-представлении).
+; RSI - точности (OCaml-целое).
+; RDX - флаг - пробел или + (OCaml-целое).
 C_primitive caml_hexstring_of_float
+;	Пролог частично повторяет caml_alloc_sprintf1.
+;	Создаём заголовок с нулевой длиной. Скорректируем её по готовности строки.
+	mov	qword[alloc_small_ptr_backup], String_tag
+	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + sizeof value]
+	push	alloc_small_ptr_backup
+	Int_val	rsi
+	Int_val	edx
+	mov	cl, dl
+	mov	r11, rsi	; precision
+	mov	rsi, [rdi]
+	zero	r9		; fmtlen
+	jmp	caml_alloc_sprintf1.floating_point_number_a
 end C_primitive
 
 

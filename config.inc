@@ -1,9 +1,16 @@
 ; Конфигурация.
 
-; Использовать ли оригинальные сообщения об ошибках (на английском).
 ; Необходимы для прохождения тестов (basic-more/bounds).
-ORIGINAL_ERROR_MESSAGES := 1
+ORIGINAL_MESSAGES	:= 1
 
+; Использовать ли оригинальные сообщения об ошибках (на английском).
+ORIGINAL_ERROR_MESSAGES := ORIGINAL_MESSAGES
+
+; OCaml для формата a выводит infinity (см. caml_hexstring_of_float()).
+ORIGINAL_INFINITY_MESSAGE := ORIGINAL_MESSAGES
+
+; Отделяет целую часть числа от дробной.
+DECIMAL_SEPARATOR := '.'
 
 ; Активен ли сборщик мусора
 HEAP_GC := 1
