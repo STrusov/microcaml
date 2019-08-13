@@ -506,6 +506,8 @@ precision equ r11
 	jz	.floating_point_number_f
 	cmp	al, 'g'
 	jz	.floating_point_number_g
+	cmp	al, 'G'
+	jz	.floating_point_number_G
 ;	cmp	al, 'a'
 ;	jz	.floating_point_number_a
 	cmp	al, 'e'
@@ -536,6 +538,10 @@ precision equ r11
 	jmp	.fpn
 .floating_point_number_g:
 	mov	di, 'g'
+	mov	rdx, precision
+	jmp	.fpn
+.floating_point_number_G:
+	mov	di, 'g' + ('a' xor 'A') shl 8
 	mov	rdx, precision
 	jmp	.fpn
 .floating_point_number_f:
