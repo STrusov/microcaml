@@ -572,14 +572,21 @@ precision equ r11
 .octal:
 	cmp	cl, '#'
 	jnz	.oct_f
+;	Eсли значение и точность равны 0, выводится единственный 0.
+;	OCaml игнорирует точность в формате, преобразуя %#.0o и %#.1o в %#o.
+	test	rsi, rsi
+	jz	.oct_f
 	mov	byte[alloc_small_ptr_backup], '0'
 	inc	alloc_small_ptr_backup
 .oct_f:	and	rsi, rdx
 	call	format_nativeint_oct
 	jmp	.copy_fmt_tail
 .hexadecimal:
+;	Флаг # - ненулевой результат предваряется префиксом 0x
 	cmp	cl, '#'
 	jnz	.hex_a
+	test	rsi, rsi
+	jz	.hex_a
 	mov	word[alloc_small_ptr_backup], '0x'
 	add	alloc_small_ptr_backup, 2
 .hex_a:	and	rsi, rdx
@@ -588,6 +595,8 @@ precision equ r11
 .HEXadecimal:
 	cmp	cl, '#'
 	jnz	.hex_A
+	test	rsi, rsi
+	jz	.hex_a
 	mov	word[alloc_small_ptr_backup], '0X'
 	add	alloc_small_ptr_backup, 2
 .hex_A:	and	rsi, rdx
