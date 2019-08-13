@@ -254,12 +254,13 @@ end if
 	jnz	.e_bl
 	mov	edx, 1
 	jmp	.total
-align 8
+virtual QConst
 .exps10		dq 1e256, 1e128, 1e64, 1e32, 1e16, 1e8, 1e4, 100.0, 10.0
 .exps10_size := ($-.exps10)/8
 ; Замена деления умножением в данном случае может привести к потери точности,
 ; поскольку множители не являются степенью 2.
 		dq 1e-256, 1e-128, 1e-64, 1e-32, 1e-16, 1e-8, 1e-4, 0.01, 0.1
+end virtual
 restore exp, fmt, fmtl
 
 ; Преобразует вещественное число в строковое шестнадцатеричное представление,
@@ -405,7 +406,9 @@ sign	equ r8
 .fail:;	pop	rdi
 .fail2:	lea	rdi, [.msg]
 	jmp	caml_failwith
+virtual Const
 .msg:	db	'float_of_string', 0
+end virtual
 restore	sign
 end C_primitive
 

@@ -109,10 +109,13 @@ rep	stos	qword[rdi]
 	add	rsp, sizeof .ksa
 	j_ok	.sigseg_handler_installed
 	push	rax
-	puts	error_sigsegv_nohandler
+	puts	.error_sigsegv_nohandler
 	pop	rdi
 	jmp	sys_exit
 .sigseg_handler_installed:
+virtual Const
+.error_sigsegv_nohandler	db 'Не установлен обработчик '
+end virtual
 end macro
 
 ; Создаёт таблицу атомов.
@@ -132,12 +135,12 @@ macro heap_init	sigstack_base, sigstack_size
 end macro
 
 ; Параметры кучи. Д.б. в секции данных.
-macro	heap_descriptor
+virtual Data
 heap_descriptor:
 	.gc_start	dq ?	; Если адрес не 0, то с него начинается сборка мусора.
 	.uncommited	dq ?
 	.sp_top		dq ?
-end macro
+end virtual
 
 ; Выделяет статически начальную память для кучи.
 ; Должно завершать секцию неинициализированных данных.
@@ -243,9 +246,12 @@ restore rsi14_ptr
 restore	uncommited
 
 .err:	push	rax
-	puts	error_sigsegv_handler
+	puts	.error_sigsegv_handler
 	pop	rdi
 	jmp	sys_exit
+virtual Const
+.error_sigsegv_handler	db 'SIGSEGV', 10, 0
+end virtual
 
 ; См.	glibc/sysdeps/unix/sysv/linux/x86_64/sigaction.c
 ; и (?)	uClibc/libc/sysdeps/linux/arc/sigaction.c

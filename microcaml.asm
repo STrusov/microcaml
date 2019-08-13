@@ -11,6 +11,20 @@ format ELF64
 ;entry	main
 public _start
 
+; Данные, объявленные в этих областях, распологаются в секциях данных.
+; Константы, выравнивание 8.
+virtual at QConstants
+	QConst::
+end virtual
+; Константы, без выравнивания (строки).
+virtual at Constants
+	Const::
+end virtual
+; Доступно для записи.
+virtual at DataBLOB
+	Data::
+end virtual
+
 ; Общесистемное соглашение о вызовах для Linux AMD64 (см. System V AMD64 ABI)
 ;
 ; Сохраняются при вызовах внешних функций: RBX RBP ESP R12 R13 R14 R15
@@ -729,6 +743,13 @@ caml_int32_ops:
 	.deserialize	dq 0 ;int32_deserialize,
 	.compare_ext	dq 0 ;custom_compare_ext_default
 
+postpone
+	virtual QConst
+		load QConst.OctetString : $ - $$ from $$
+	end virtual
+end postpone
+QConstants	db QConst.OctetString
+
 ; caml_builtin_cprim
 include 'primitives.inc'
 
@@ -744,9 +765,14 @@ error_bytecode_dlls	db 'Примитивы во внешних библиоте�
 error_datasection_sig	db 'Недействительная секция данных', 10, 0
 error_unsupported_data	db ' Неподдерживаемый блок в секции DATA', 10, 0
 error_unsupported_custom_block	db ' - неподдерживаемый пользовательский тип в секции DATA', 10, 0
-error_sigsegv_nohandler	db 'Не установлен обработчик '
-error_sigsegv_handler	db 'SIGSEGV', 10, 0
 
+postpone
+	virtual Const
+		load Const.OctetString : $ - $$ from $$
+	end virtual
+end postpone
+
+Constants	db Const.OctetString
 
 ;segment readable writeable
 section '.data' writeable align 4096
@@ -755,17 +781,16 @@ section '.data' writeable align 4096
 environment_variables	dq ?
 bytecode_filename	dq ?
 
-oo_last_id	value	Val_int_0
-
 ; Глобальные данные из секции DATA
-; value caml_global_data = 0;
 caml_global_data	dq 0
 
-; Связный список каналов для их сброса при завершении приложения.
-caml_all_opened_channels	dq 0
+postpone
+	virtual Data
+		load Data.OctetString : $ - $$ from $$
+	end virtual
+end postpone
+DataBLOB dq Data.OctetString
 
-; Описатель кучи.
-heap_descriptor
 
 ;segment readable writeable
 section '.bss' writeable ; align 4096

@@ -109,6 +109,10 @@ C_primitive caml_get_public_method
 end C_primitive
 
 
+virtual Data
+	oo_last_id	value	Val_int_0
+end virtual
+
 ; RDI - адрес объекта.
 C_primitive caml_set_oo_id
 	mov	rax, [oo_last_id]

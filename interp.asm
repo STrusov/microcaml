@@ -1763,9 +1763,14 @@ rep	movs	byte[alloc_small_ptr], [rsi]
 restore	start
 restore	bucket
 if ORIGINAL_ERROR_MESSAGES
+virtual Const
 .msg	db 'Fatal error: exception '
-else
-.msg	db 'Фатальная ошибка: исключение '
-end if
 .msg.size := $-.msg
+end virtual
+else
+virtual Const
+.msg	db 'Фатальная ошибка: исключение '
+.msg.size := $-.msg
+end virtual
+end if
 end proc

@@ -114,7 +114,9 @@ over	equ r9
 .fail2:	lea	rdi, [.msg]
 	jmp	caml_failwith
 ;!!! следует передавать из вызывающей процедуры строку с её именем.
+virtual Const
 .msg	db	'parse_intnat', 0
+end virtual
 restore	over
 restore	sign
 end proc

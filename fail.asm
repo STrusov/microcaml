@@ -60,9 +60,13 @@ proc caml_array_bound_error
 	lea	rdi, [.msg]
 	jmp	caml_invalid_argument
 if ORIGINAL_ERROR_MESSAGES
+virtual Const
 .msg	db 'index out of bounds', 0
+end virtual
 else
+virtual Const
 .msg	db 'Выход за пределы массива', 0
+end virtual
 end if
 end proc
 

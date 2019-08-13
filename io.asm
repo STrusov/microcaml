@@ -46,6 +46,10 @@ int3
 	mov	[.channel.next], rcx
 	mov	[caml_all_opened_channels], .channel
 	ret
+virtual Data
+	; Связный список каналов для их сброса при завершении приложения.
+	caml_all_opened_channels	dq 0
+end virtual
 end proc
 
 
