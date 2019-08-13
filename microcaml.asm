@@ -496,10 +496,10 @@ CODE_INT8		:= 0x0
 	mov	rax, [intern_obj_table + rax * sizeof value]
 	jmp	.read_item_ok
 .code_shared16:
+	zero	eax
 	lods	byte[rsi]
 	shl	eax, 8
 	lods	byte[rsi]
-	movsx	rax, ax
 	jmp	.read_shared
 
 .small_block:
