@@ -4,8 +4,6 @@ include 'linux-x64.inc'
 
 include 'mlvalues.inc'
 
-PAGE_SIZE	:= 1000h	; 4096
-
 ;format	ELF64 executable ELFOSABI_LINUX
 format ELF64
 ;entry	main
@@ -398,6 +396,7 @@ dest		equ rbx
 ;	По завершению чтения элемента сохраняем его адрес в таблице ссылок.
 .read_item_ok:
 ;	Поскольку dest < rdi, менеджер кучи добавит страницу.
+;	Сборка мусора на данном этапе не активна, регистры не модифицируются.
 	mov	[dest], rax
 ;OReadItems 	:= 0	; считывание элементов
 .read_items:

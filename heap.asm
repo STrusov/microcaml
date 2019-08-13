@@ -30,6 +30,8 @@ alloc_small_ptr_backup	equ r14	; копия для сохранения при �
 ; Если надо объявить размещённые на куче объекты не подлежащими для сборки мусора,
 ; используется макрос heap_set_gc_start_address.
 
+PAGE_SIZE	:= 1000h	; 4096
+
 ; Инициализация параметров кучи; текущий адрес аллокации и верхняя граница.
 ; RDI копируется в R14 и обратно в обработчиках C_CALL, потому задаём только 1й.
 macro heap_set_limits
@@ -168,6 +170,7 @@ rsi14_ptr equ rcx
 	mov	uncommited, [.sinf.si_addr]
 	and	uncommited, not (PAGE_SIZE-1)
 ;	SIGSEGV валиден при обращении через один из регистров: r14 или rdi.
+;	Поскольку обращение может быть по смещению, сравниваем с округлением.
 	lea	rsi14_ptr, [.ctx.uc_mcontext.rdi]
 	mov	rax, [rsi14_ptr]
 	and	rax, not (PAGE_SIZE-1)
@@ -180,8 +183,10 @@ rsi14_ptr equ rcx
 ;	jnz	.err
 ;	Поскольку адрес аллокации растёт линейно, исключение возникает
 ;	вблизи границы старших адресов кучи.
-.chkun:	cmp	uncommited, [heap_descriptor.uncommited]
-	jnz	.err
+.chkun:	mov	rax, uncommited
+	sub	rax, [heap_descriptor.uncommited]
+	cmp	rax, HEAP_INCREMENT_GAP + HEAP_INCREMENT
+	jnb	.err
 ;	Если сборщик мусора отключён, просто добавляем страницу.
 	cmp	[heap_descriptor.gc_start], 0
 	jz	.add_page
@@ -229,10 +234,14 @@ rsi14_ptr equ rcx
 	ret
 restore rsi14_ptr
 
-;	Добавляем страницу(ы) памяти.
+;	Добавляем страницу(ы) памяти:
+;	пространство между uncommited и [heap_descriptor.uncommited]
+;	плюс HEAP_INCREMENT.
 .add_page:
-	mov	rdi, uncommited	; округлённый до границы страницы [.sinf.si_addr]
-	mov	esi, HEAP_INCREMENT
+	mov	rdi, [heap_descriptor.uncommited]
+	mov	rsi, uncommited	; округлённый до границы страницы [.sinf.si_addr]
+	sub	rsi, rdi
+	add	esi, HEAP_INCREMENT
 	mov	edx, PROT_READ or PROT_WRITE
 	mov	r10d, MAP_PRIVATE or MAP_ANONYMOUS
 	mov	r8, -1
