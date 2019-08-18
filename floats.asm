@@ -33,7 +33,9 @@ exp	equ r11
 fmt	equ r10
 fmtl	equ r10l
 	mov	ecx, edx
-	mov	fmt, rdi	; сохраняется в format_nativeint
+;	mov	fmt, rdi	; сохраняется в format_nativeint
+;	Обнуляем старшие 32 разряда, в них дальше может сохраняться кол-во 0-й.
+	mov	r10d, edi
 ;	Поскольку sprintf различает 0.0 и -0.0, inf и -inf,
 ;	определим знак числа и выведем символ '-' для отрицательных.
 	test	rsi, rsi
@@ -57,25 +59,44 @@ fmtl	equ r10l
 ;	%g - если 0.0001 > значение > 0, выводим в формате e.
 	cmp	fmtl, 'g'
 	jne	.f_format
-	mov	rax, 0.0
-	cmp	rsi, rax
+	test	rsi, rsi
 	je	.f_format
-	mov	rax, 0.0001
+;	Если точность равна 0, следует вывести как минимум один разряд.
+;	lea	edx, [rcx + 1]
+	inc	edx
+	test	ecx, ecx
+	cmovz	ecx, edx
+	mov	rax, 0.000095	; при единичной точности округляется до 0.0001
 	cmp	rsi, rax
 	jb	.e_format_g
-;	Подсчитываем количество цифр в целой части.
-.f_format:
-	zero	edx
-	mov	eax, 10
+;	Для дробных значений следует увеличить точность
+;	на количество нулей после разделителя.
+	mov	rax, 0.1
+	cmp	rsi, rax
+	lea	edx, [rcx + 1]
+	cmovc	ecx, edx
+	mov	rax, 0.01
+	cmp	rsi, rax
+	lea	edx, [rcx + 1]
+	cmovc	ecx, edx
+	mov	rax, 0.001
+	cmp	rsi, rax
+	lea	edx, [rcx + 1]
+	cmovc	ecx, edx
 ;	%g - если целая часть равна 0, она выводится помимо значащих разрядов
 ;	дробной части; округляем к 0, что бы увеличить точность в таком случае.
 	cvttsd2si rsi, xmm0
-	or	edi, -1
-	cmp	fmtl, 'g'
-	cmovz	rdi, rsi
-	test	rdi, rdi
-	lea	edi, [ecx + 1]
-	cmovz	ecx, edi
+	lea	edx, [rcx + 1]
+	test	rsi, rsi
+	cmovz	ecx, edx
+.f_format:
+	zero	edx
+	mov	eax, 10
+	cvtsd2si rsi, xmm0
+;	Отдельно обработаем значения, выходящие за диапазон знакового целого,
+;	Тогда RSI = 0x8000000000000000. Иные отрицательные значения исключены.
+	test	rsi, rsi
+	js	.f_format_big
 .cint:	inc	edx
 	cmp	rsi, rax
 	jc	.calc_fmt
@@ -92,18 +113,34 @@ fmtl	equ r10l
 	cmp	ecx, edx
 	jc	.e_format_g
 	sub	ecx, edx
+;	%g - если число целое, обнуляем формат, что бы избежать удаления нулей
+;	в младших разрядах (см. .g_0s:).
+	cmovz	fmt, rcx
 .total:	add	edx, ecx
 ;	Десятичный разделитель (OCaml не использует локализацию?)
 	mov	edi, DECIMAL_SEPARATOR
 	shl	rdi, 32
 	test	ecx, ecx
 	jz	.prec0
+;	64-х разрядное число даёт 19 десятичных разрядов, следует избежать
+;	переполнения при умножении.
+	mov	eax, 19;+1
+	sub	eax, edx
+	jnc	.d19
+	add	ecx, eax
+	add	edx, eax
+	neg	eax
+	shl	rax, 32
+	or	fmt, rax
+.d19:
 ;	Десятичный разделитель увеличивает количество  символов на 1.
 	inc	edx
 ;	Указываем его позицию от младшего разряда (дробной части) числа.
 	lea	rdi, [rdi + rcx + 1]
 ;	Перенесём требуемое после запятой количество знаков в целую часть,
 ;	умножив на 10 в степени n. Результат округляем.
+	test	ecx, ecx
+	jz	.prec0
 	mov	eax, 1
 ;	Возведение в степень n выполняем сдвигом + сложением (lea) n раз,
 ;	а не двоичным разложением n, поскольку для малых n количество итераций
@@ -116,22 +153,48 @@ fmtl	equ r10l
 	cvtsi2sd xmm1, rax
 	mulsd	xmm0, xmm1
 .prec0:	cvtsd2si rsi, xmm0
+;	Превышающие 92233720368547752.0 значения проходят проверку на кол-во
+;	разрядов, но выходят за диапазон знаковых целых.
+	test	rsi, rsi
+	jns	.format_decimal
+	mov	rax, 0.1
+	movq	xmm1, rax
+	mulsd	xmm0, xmm1
+	dec	edx
+	dec	rdi
+	cvtsd2si rsi, xmm0
+	mov	rax, 1 shl 32
+	add	fmt, rax
+.format_decimal:
 ;	Форматируем целое представление числа в строку.
 	call	format_nativeint_n
 ;	%g - незначащие нули справа следует откинуть.
 	cmp	fmtl, 'g'
-	je	.fnz
+	je	.g_0s
 ;	%e - следует вывести значение экспоненты.
 	cmp	fmtl, 'e'
 	je	.e_exp
 ;	Для %g, выводимого как %e, исключаем незначащие нули перед экспонентой.
 	cmp	fmtl, 'G'
 	je	.g_exp
+;	%f - возможно, требуется вывести дополнительные 0-ли в младших разрядах.
+	shr	fmt, 32
+	jnz	.f_0s
 .exit:	ret
-.fnz:	cmp	byte[alloc_small_ptr_backup + rax - 1], '0'
+.f_0s:	mov	byte[alloc_small_ptr_backup + rax], '0'
+	inc	eax
+	dec	fmt
+	jnz	.f_0s
+	ret
+.g_0s:	cmp	byte[alloc_small_ptr_backup + rax - 1], '0'
+	jnz	.g_dot
+	dec	eax
+	jmp	.g_0s
+;	Десятичный разделитель нужен только если есть дробная часть.
+.g_dot: cmp	byte[alloc_small_ptr_backup + rax - 1], '.'
 	jnz	.exit
 	dec	eax
-	jmp	.fnz
+	ret
 .infinity:
 if ORIGINAL_INFINITY_MESSAGE
 ;	OCaml для формата a выводит infinity (см. caml_hexstring_of_float()).
@@ -147,6 +210,42 @@ end if
 	ret
 .nan:	mov	dword[alloc_small_ptr_backup], 'nan'
 	jmp	.exit3
+.f_format_big:
+	cmp	fmtl, 'g'
+	jz	.e_format_g
+;	Делим на 10, пока не попадём в диапазон знакового целого. Практическая
+;	польза подобных представлений не достаточна для усложнения алгоритма.
+	mov	rax, 0.1
+	movq	xmm1, rax
+	zero	eax
+.f_nrm:	mulsd	xmm0, xmm1
+	inc	eax
+	cvttsd2si rsi, xmm0
+	test	rsi, rsi
+	js	.f_nrm
+	zero	rdi
+	mov	exp, rcx
+	mov	fmt, rax
+	mov	rax, 1000000000000000000
+	cmp	rsi, rax
+	mov	edx, 19
+	lea	eax, [rdx - 1]
+	cmovc	edx, eax
+	call	format_nativeint_n
+	add	fmt, exp
+.f_0:	mov	cl, '0'
+	mov	dl, '.'
+	cmp	fmt, exp
+	cmovz	ecx, edx
+	mov	byte[alloc_small_ptr_backup + rax], cl
+	inc	eax
+	dec	fmt
+	jns	.f_0
+;	Завершающая точка исключается.
+	lea	ecx, [rax - 1]
+	test	exp, exp
+	cmovz	eax, ecx
+	ret
 .a_format:
 ;	Выделяем экспоненту.
 	mov	exp, rsi
@@ -169,7 +268,7 @@ end if
 	shr	rsi, cl
 	mov	byte[alloc_small_ptr_backup], DECIMAL_SEPARATOR
 	inc	alloc_small_ptr_backup
-	mov	dl, fmtl	;'a'
+	mov	dl, fmtl	; 'a'
 	call	format_nativeint_hex
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
 ;	Выводим экспоненту.
@@ -194,23 +293,29 @@ end if
 	test	esi, esi
 	cmovnz	exp, rax
 	jmp	.a_fract
-.g_exp: cmp	byte[alloc_small_ptr_backup + rax - 1], '0'
-	lea	eax, [eax - 1]
+;	Возможен единственный 0 в целой части.
+.g_exp: dec	eax
+	jz	.g_e
+	cmp	byte[alloc_small_ptr_backup + rax], '0'
 	jz	.g_exp
 	cmp	byte[alloc_small_ptr_backup + rax], DECIMAL_SEPARATOR
 	jz	.e_exp
-	inc	eax
-.e_exp:	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
+.g_e:	inc	eax
+;	Результат округления возможен 10.0, следует скорректировать его.
+;	В таком случае в esi после format_nativeint_pos остаётся 1.
+.e_exp:	test	esi, esi
+	jz	.e_e
+	mov	byte[alloc_small_ptr_backup], '1'
+	inc	exp
+.e_e:	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
 	mov	cx, 'e-'
 	mov	ax, 'e+'
 	mov	edx, 2	; минимум 2 цифры.
 	jmp	.exp
 .e_format_g:
-;	Точность принимается 1, в случае 0; и уменьшается на 1.
-	mov	eax, ecx
 	dec	ecx
-	cmovs	ecx, eax
 	mov	fmtl, 'G'	; особый вариант обработки экспоненты.
+	movq	rsi, xmm0
 ;	%e - следует преобразовать число к виду d.ddd, вычислив экспоненту.
 .e_format:
 	zero	exp
