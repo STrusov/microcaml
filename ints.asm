@@ -869,28 +869,32 @@ end proc
 ; DL - символ соответствующий 10, т.е. 'A' или 'a'.
 ; R8 и R9 не используются.
 proc	format_nativeint_hex
-	zero	rdi
+;	Подсчитываем количество значащих полубайт и сдвигаем незначащие.
+	bsr	rcx, rsi
+	or	ecx, 3
+	neg	ecx
+	add	ecx, 63
+	shl	rsi, cl
+	shr	ecx, 2
+	neg	ecx
+	add	ecx, 16
+
+; ECX - количество разрядов (старших полубайт) для вывода.
+format_nativeint_hex_n:
+	zero	edi
 	sub	dl, '9' + 1
-	mov	ecx, sizeof value * 8 / 4
-.skip_leading_zeroes:
-	mov	rax, rsi
-	shr	rax, (sizeof value - 1) * 8 + 4
-	jnz	.hd
-	shl	rsi, 4
-	loop	.skip_leading_zeroes
-	inc	ecx
 .hex_digit:
 	mov	rax, rsi
 	shr	rax, (sizeof value - 1) * 8 + 4
-.hd:	add	al, '0'
+	add	al, '0'
 	cmp	al, '9'
 	jbe	.dig
 	add	al, dl
 .dig:	mov	[alloc_small_ptr_backup + rdi], al
-	inc	rdi
+	inc	edi
 	shl	rsi, 4
 	loop	.hex_digit
-	mov	rax, rdi
+	mov	eax, edi
 	ret
 end proc
 
