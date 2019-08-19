@@ -186,6 +186,7 @@ rsi14_ptr equ rcx
 .chkun:	mov	rax, uncommited
 	sub	rax, [heap_descriptor.uncommited]
 	cmp	rax, HEAP_INCREMENT_GAP + HEAP_INCREMENT
+	mov	eax, EFAULT
 	jnb	.err
 ;	Если сборщик мусора отключён, просто добавляем страницу.
 	cmp	[heap_descriptor.gc_start], 0
