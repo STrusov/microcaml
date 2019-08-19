@@ -256,20 +256,33 @@ end if
 	add	alloc_small_ptr_backup, 3
 	sub	exp, 1023
 .a_fract:
-;	Если точность не задана, выводим без округления.
-;	test	ecx, ecx
-;	Выводим дробную часть, при наличии.
 	mov	rax, 1 shl Mantissa_bits - 1
 	and	rsi, rax
+;	Разделитель не выводится:
+;	- если точность нулевая;
+;	- если точность не задана (отрицательна) и дробная часть нулевая.
+	test	edx, edx
+	mov	eax, edx
+	cmovs	rax, rsi
+	test	rax, rax
 	jz	.a_exp
-;	Сдвигаем незначащие полубайты.
+;	Сдвигаем значащие полубайты в старшие разряды.
+	mov	cl, 64 - Mantissa_bits
+	shl	rsi, cl
+	mov	eax, 63
 	bsf	rcx, rsi
-	and	ecx, -8
-	shr	rsi, cl
+	cmovz	ecx, eax
+;	Количество подлежащих выводу разрядов.
+	shr	ecx, 2
+	neg	ecx
+	add	ecx, 16
+;	Если точность не задана (отрицательна), выводим все значащие разряды.
+	test	edx, edx
+	cmovns	ecx, edx
 	mov	byte[alloc_small_ptr_backup], DECIMAL_SEPARATOR
 	inc	alloc_small_ptr_backup
 	mov	dl, fmtl	; 'a'
-	call	format_nativeint_hex
+	call	format_nativeint_hex_n
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
 ;	Выводим экспоненту.
 .a_exp:	mov	cx, 'p-'

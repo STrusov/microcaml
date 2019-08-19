@@ -529,6 +529,7 @@ precision equ r11
 ;	Вызывается из caml_hexstring_of_float
 .floating_point_number_a:
 	mov	di, 'a'
+	mov	rdx, precision
 	jmp	.fpn
 .floating_point_number_e:
 	mov	di, 'e'
