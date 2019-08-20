@@ -880,6 +880,7 @@ proc	format_nativeint_hex
 	add	ecx, 16
 
 ; ECX - количество разрядов (старших полубайт) для вывода.
+; Возвращает в RSI невыведенные разряды (сдвинутыми в старшие позиции).
 format_nativeint_hex_n:
 	zero	edi
 	sub	dl, '9' + 1

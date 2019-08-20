@@ -41,6 +41,12 @@ let test (num, etalon, format) = test' (=) num etalon format
 let test2 (num, etalon, format) = test' matches num etalon format
 ;;
 
+  assert (test(0x1.ffffffffp+52,	"0x2p+52", "%.h"));
+  assert (test(0x1.ffffffffp+52,	"0x2.0p+52", "%.1h"));
+  assert (test(0x1.ffffffffp+52,	"0x2.000000p+52", "%.6h"));
+  assert (test(0x1.eeeeffffp+52,	"0x1.eeef00p+52", "%.6h"));
+  assert (test(0x1.eeeeffffp+52,	"0X1.EEEF00P+52", "%.6H"));
+
   assert (test(30.3,			"<          +30.3>", "<%+15.10g>"));
   assert (test(10.0,			"<10.00>", "<%5.2f>"));
 

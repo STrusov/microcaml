@@ -258,6 +258,8 @@ end if
 .a_fract:
 	mov	rax, 1 shl Mantissa_bits - 1
 	and	rsi, rax
+	mov	cl, 64 - Mantissa_bits
+	shl	rsi, cl
 ;	Разделитель не выводится:
 ;	- если точность нулевая;
 ;	- если точность не задана (отрицательна) и дробная часть нулевая.
@@ -265,10 +267,8 @@ end if
 	mov	eax, edx
 	cmovs	rax, rsi
 	test	rax, rax
-	jz	.a_exp
+	jz	.a_round
 ;	Сдвигаем значащие полубайты в старшие разряды.
-	mov	cl, 64 - Mantissa_bits
-	shl	rsi, cl
 	mov	eax, 63
 	bsf	rcx, rsi
 	cmovz	ecx, eax
@@ -283,9 +283,28 @@ end if
 	inc	alloc_small_ptr_backup
 	mov	dl, fmtl	; 'a'
 	call	format_nativeint_hex_n
-	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
+;	Если значение выведено частично и требует округления, старший бит 1.
+.a_round:
+	test	rsi, rsi
+	jns	.a_exp
+	mov	esi, eax
+.a_r:	dec	rsi
+	cmp	byte[alloc_small_ptr_backup + rsi], DECIMAL_SEPARATOR
+	jz	.a_r
+	mov	dl, [alloc_small_ptr_backup + rsi]
+	inc	dl
+	mov	cl, 'a'
+	cmp	dl, '9' + 1
+	cmove	edx, ecx
+	mov	[alloc_small_ptr_backup + rsi], dl
+	cmp	dl, 'f'
+	jbe	.a_exp
+	mov	byte[alloc_small_ptr_backup + rsi], '0'
+	test	rsi, rsi
+	jns	.a_r
+.a_exp:	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + rax]
 ;	Выводим экспоненту.
-.a_exp:	mov	cx, 'p-'
+	mov	cx, 'p-'
 	mov	ax, 'p+'
 	zero	edx
 .exp:	mov	rsi, exp
