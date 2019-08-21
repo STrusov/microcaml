@@ -36,7 +36,9 @@ C_primitive caml_create_bytes
 	jbe	caml_alloc_string
 	lea	rdi, [.msg]
 	jmp	caml_invalid_argument
+virtual Const
 .msg	db	"Bytes.create", 0
+end virtual
 end C_primitive
 
 
