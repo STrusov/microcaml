@@ -1,5 +1,7 @@
 ; Конфигурация.
 
+VERSION equ '0.2'
+
 ; Необходимы для прохождения тестов (basic-more/bounds).
 ORIGINAL_MESSAGES	:= 1
 

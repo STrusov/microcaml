@@ -754,7 +754,7 @@ include 'primitives.inc'
 
 bytecode_sect_names	db sect_names
 
-error_about db 'uCaml x64 v0.1', 10
+error_about db 'uCaml x64 v', VERSION, 10
 	db 'Укажите имя файла в качестве аргумента.', 10, 0
 
 error_bytecode_open	db 'Ошибка открытия файла', 10, 0
