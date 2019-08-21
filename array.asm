@@ -146,7 +146,11 @@ C_primitive caml_make_vect
 	jz	.exit
 	mov	rcx, rdi
 	to_wosize rdi
-;	надо: if (wsize > Max_wosize) caml_invalid_argument("Array.make");
+	mov	rax, Max_wosize
+	cmp	rdi, rax
+	mov	rax, .err
+	cmova	rdi, rax
+	ja	caml_invalid_argument
 ;	Проверяем, не является ли элемент ссылкой на вещественное число.
 	test	rsi, 1
 	jnz	.val
@@ -167,6 +171,9 @@ C_primitive caml_make_vect
 	lea	rax, [alloc_small_ptr_backup + sizeof value]
 	lea	alloc_small_ptr_backup, [alloc_small_ptr_backup + (1 + rdx) * sizeof value]
 .exit:	ret
+virtual Const
+.err	db 'Array.make', 0
+end virtual
 end C_primitive
 
 
