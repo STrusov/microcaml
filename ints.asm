@@ -3,11 +3,14 @@
 
 ; Возвращает целое число, сконвертированное из текстового представления.
 ; RDI - адрес строки;
+; RSI - адрес строки, отображаемой в случае ошибки;
 ; CL - количество значащих разрядов результата.
 proc parse_intnat
 ;base	equ rsi
 sign	equ r8
 over	equ r9
+msg	equ r10
+	mov	msg, rsi
 	push	rdi
 	zero	sign
 	cmp	byte[rdi], '+'
@@ -111,14 +114,9 @@ over	equ r9
 	jz	.min
 ; 	При вызове caml_failwith нет необходимости выравнивать стек
 .fail:;	pop	rdi
-.fail2:	lea	rdi, [.msg]
+.fail2:	mov	rdi, msg
 	jmp	caml_failwith
-;!!! следует передавать из вызывающей процедуры строку с её именем.
-virtual Const
-.msg	db	'parse_intnat', 0
-end virtual
-restore	over
-restore	sign
+restore	msg, over, sign
 end proc
 
 
@@ -157,9 +155,14 @@ end C_primitive
 ; RDI - адрес строки.
 C_primitive caml_int_of_string
 	mov	cl, sizeof value * 8 - 1
+	lea	rsi, [.errmsg]
 	call	parse_intnat
 	Val_int	rax
 	ret
+virtual Const
+.errmsg	db	'int_of_string', 0
+end virtual
+
 end C_primitive
 
 
@@ -441,9 +444,13 @@ end C_primitive
 C_primitive caml_int32_of_string
 	int32_header
 	mov	cl, sizeof value * 4
+	lea	rsi, [.errmsg]
 	call	parse_intnat
 	cdqe
 	int32_ret rax
+virtual Const
+.errmsg	db	'Int32.of_string', 0
+end virtual
 end C_primitive
 
 
@@ -506,7 +513,16 @@ caml_int64_compare	:= caml_nativeint_compare
 
 caml_int64_format	:= caml_nativeint_format
 
-caml_int64_of_string	:= caml_nativeint_of_string
+
+; Возвращает целое OCaml value, сконвертированное из текстового представления.
+; RDI - адрес строки.
+C_primitive caml_int64_of_string
+	lea	rsi, [.errmsg]
+	jmp	caml_nativeint_of_string.rsi
+virtual Const
+.errmsg	db	'Int64.of_string', 0
+end virtual
+end C_primitive
 
 
 ; Создаём копию, поскольку формат идентичен. (безопасно ли просто вернуть RDI?)
@@ -945,8 +961,13 @@ end C_primitive
 ; Возвращает целое OCaml value, сконвертированное из текстового представления.
 ; RDI - адрес строки.
 C_primitive caml_nativeint_of_string
+	lea	rsi, [.errmsg]
+.rsi:
 	nativeint_header
 	mov	cl, sizeof value * 8
 	call	parse_intnat
 	nativeint_ret rax
+virtual Const
+.errmsg	db	'Nativeint.of_string', 0
+end virtual
 end C_primitive
