@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 testsuite="../ocaml/testsuite/tests"
 
