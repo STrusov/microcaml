@@ -166,18 +166,18 @@ proc heap_sigsegv_handler
 	mov	eax, EFAULT
 	jnz	.err
 uncommited equ r10
-rsi14_ptr equ rcx
+rdi14_ptr equ rcx
 	mov	uncommited, [.sinf.si_addr]
 	and	uncommited, not (PAGE_SIZE-1)
 ;	SIGSEGV валиден при обращении через один из регистров: r14 или rdi.
 ;	Поскольку обращение может быть по смещению, сравниваем с округлением.
-	lea	rsi14_ptr, [.ctx.uc_mcontext.rdi]
-	mov	rax, [rsi14_ptr]
+	lea	rdi14_ptr, [.ctx.uc_mcontext.rdi]
+	mov	rax, [rdi14_ptr]
 	and	rax, not (PAGE_SIZE-1)
 	cmp	rax, uncommited
 	jz	.chkun
-	lea	rsi14_ptr, [.ctx.uc_mcontext.r14]
-;	mov	rax, [rsi14_ptr]
+	lea	rdi14_ptr, [.ctx.uc_mcontext.r14]
+;	mov	rax, [rdi14_ptr]
 ;	and	rax, not (PAGE_SIZE-1)
 ;	cmp	rax, uncommited
 ;	jnz	.err
@@ -192,7 +192,7 @@ rsi14_ptr equ rcx
 	cmp	[heap_descriptor.gc_start], 0
 	jz	.add_page
 ;	Сдвигаем живые объекты к началу кучи.
-	push	rsi14_ptr
+	push	rdi14_ptr
 ;	env (r13) может хранить ссылку на блок, который необходимо учитывать.
 ;	Сохраним содержимое регистра в стеке прерванного потока,
 ;	предварительно сохранив адрес структуры ucontext в стеке обработчика.
@@ -224,16 +224,16 @@ rsi14_ptr equ rcx
 ;	Если он равен uncommited, значит освободить место в куче не удалось
 ;	и следует выделить новые страницы.
 	cmp	alloc_small_ptr, uncommited
-	pop	rsi14_ptr
+	pop	rdi14_ptr
 	jae	.add_page
 ;	Если удалось освободить место, значит alloc_small_ptr изменился.
 ;	Следует передать его в прерванный поток через структуру ucontext.
 ;	Учтём, что обращение к памяти может быть по смещению
 ;	относительно значения регистра.
 	sub	alloc_small_ptr, uncommited
-	add	[rsi14_ptr], alloc_small_ptr
+	add	[rdi14_ptr], alloc_small_ptr
 	ret
-restore rsi14_ptr
+restore rdi14_ptr
 
 ;	Добавляем страницу(ы) памяти:
 ;	пространство между uncommited и [heap_descriptor.uncommited]
